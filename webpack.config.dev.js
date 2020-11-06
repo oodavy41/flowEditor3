@@ -14,7 +14,7 @@ const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 7000;
 const HOST = process.env.HOST || "localhost";
 
 module.exports = {
-  entry: "./src/index.js",
+  entry: "./src/index.tsx",
   mode: "development",
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -22,7 +22,7 @@ module.exports = {
     // chunkFilename: "[name].min.js"
   },
   resolve: {
-    extensions: [".js", ".jsx"],
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
   externals: {
     react: "React",
@@ -43,7 +43,16 @@ module.exports = {
   module: {
     rules: [
       {
-        test: [/\.jsx$/, /\.js$/],
+        test: [/\.tsx?$/],
+        use: { loader: "awesome-typescript-loader" },
+      },
+      {
+        test: /\.jsx?$/,
+        enforce: "pre",
+        use: ["source-map-loader"],
+      },
+      {
+        test: /\.jsx?$/,
         exclude: /(node_modules|bower_components)/,
         use: {
           loader: "babel-loader",

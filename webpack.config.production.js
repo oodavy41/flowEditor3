@@ -9,7 +9,7 @@ const publicPathName = "custom";
 const widgetPathName = data.widgetName;
 
 module.exports = {
-  entry: "./src/production.js",
+  entry: "./src/production.ts",
   mode: "production",
   output: {
     publicPath: "./",
@@ -19,7 +19,7 @@ module.exports = {
     library: data.widgetName,
   },
   resolve: {
-    extensions: [".js", ".jsx"],
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
   externals: {
     react: "React",
@@ -27,6 +27,15 @@ module.exports = {
   },
   module: {
     rules: [
+      {
+        test: [/\.tsx?$/],
+        use: { loader: "awesome-typescript-loader" },
+      },
+      {
+        test: /\.jsx?$/,
+        enforce: "pre",
+        use: ["source-map-loader"],
+      },
       {
         test: /\.jsx?$/,
         exclude: /(node_modules|bower_components)/,
