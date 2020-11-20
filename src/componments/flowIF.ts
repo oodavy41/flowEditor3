@@ -5,6 +5,7 @@ export default interface flowIF {
   color: string | number;
   isPicked: boolean;
   isHoving: boolean;
+  switchLayer?: (layer: number, flag: boolean) => void;
   onClick?: (raycaster?: THREE.Raycaster) => void;
   offClick?: (raycaster?: THREE.Raycaster) => void;
   onUpdateData: { [key: string]: (value: any) => void };

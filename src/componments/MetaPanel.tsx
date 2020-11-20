@@ -37,6 +37,24 @@ export default function MetaPanel(props: metaPanelIF) {
             </div>
           );
           break;
+        case "image":
+          pickedDom.push(
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => updateFun(event.target.files[0])}
+            ></input>
+          );
+          break;
+        case "model":
+          pickedDom.push(
+            <input
+              type="file"
+              accept="*/obj"
+              onChange={(event) => updateFun(event.target.files[0])}
+            ></input>
+          );
+          break;
         default:
           break;
       }

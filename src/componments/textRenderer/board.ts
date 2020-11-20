@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import fragFactory from "./fragFactory";
-export default class TextFrag extends THREE.Sprite {
+export default class TextBoard extends THREE.Mesh {
+  geometry: THREE.BufferGeometry;
+  material: THREE.MeshBasicMaterial;
   factory: fragFactory;
   _text: string;
+  index: number;
   _size: number;
   _color: string | number;
   uvs: number[];
@@ -14,18 +17,23 @@ export default class TextFrag extends THREE.Sprite {
     size: number = undefined,
     color: string | number = undefined
   ) {
-    super(new THREE.SpriteMaterial({ map: factory.tex, transparent: true }));
+    super(
+      new THREE.BufferGeometry(),
+      new THREE.MeshBasicMaterial({
+        map: factory.tex,
+        transparent: true,
+      })
+    );
     factory.regist(text + Math.random(), this);
     this.factory = factory;
     this._text = text;
     this._size = size;
     this._color = color;
+
     this.uvs = [];
     this.width = 0;
     this.height = size;
     this.factory.draw(this);
-
-    let textgeo = new THREE.BufferGeometry();
     let spritePos = [
       -0.5 * this.width,
       0,
@@ -40,16 +48,15 @@ export default class TextFrag extends THREE.Sprite {
       this.height,
       0,
     ];
-    textgeo.setIndex([0, 1, 2, 0, 2, 3]);
-    textgeo.setAttribute(
+    this.geometry.setIndex([0, 1, 2, 0, 2, 3]);
+    this.geometry.setAttribute(
       "position",
       new THREE.BufferAttribute(new Float32Array(spritePos), 3)
     );
-    textgeo.setAttribute(
+    this.geometry.setAttribute(
       "uv",
       new THREE.BufferAttribute(new Float32Array(this.uvs), 2)
     );
-    this.geometry = textgeo;
     this.position.y = 0.5;
     this.position.z = 0.5;
   }
@@ -81,6 +88,7 @@ export default class TextFrag extends THREE.Sprite {
   }
 
   update() {
+    console.log("!")
     let spritePos = [
       -0.5 * this.width,
       0,

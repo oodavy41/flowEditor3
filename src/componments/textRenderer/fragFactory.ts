@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import textFrag from "./fragment";
+import textBoard from "./board";
 export default class FragFactory {
   canvas: HTMLCanvasElement;
   yoffset: number;
@@ -9,7 +10,7 @@ export default class FragFactory {
   defaultFont: number;
   defaultColor: string | number;
   tex: THREE.CanvasTexture;
-  frags: { [key: string]: textFrag };
+  frags: { [key: string]: textFrag | textBoard };
   modify: boolean;
   constructor(font: number = undefined, color: string | number = undefined) {
     this.canvas = document.createElement("canvas");
@@ -39,18 +40,11 @@ export default class FragFactory {
     delete this.frags;
   }
 
-  frag(text: string, size: number = undefined, color: string = undefined) {
-    let frag = (this.frags[text] = new textFrag(
-      this,
-      Object.keys(this.frags).length,
-      text,
-      size || this.defaultFont,
-      color || this.defaultColor
-    ));
-    return frag;
+  regist(key: string, obj: textFrag | textBoard) {
+    this.frags[key] = obj;
   }
 
-  draw(frag: textFrag) {
+  draw(frag: textFrag | textBoard) {
     console.log(frag);
     this.ctx.textBaseline = "top";
     this.ctx.fillStyle =
@@ -86,7 +80,7 @@ export default class FragFactory {
   redraw() {
     this.flush();
     for (let i in this.frags) {
-      this.draw(this.frags[i])
+      this.draw(this.frags[i]);
     }
   }
 }
