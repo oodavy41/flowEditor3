@@ -14,7 +14,13 @@ export default class TextFrag extends THREE.Sprite {
     size: number = undefined,
     color: string | number = undefined
   ) {
-    super(new THREE.SpriteMaterial({ map: factory.tex, transparent: true }));
+    super(
+      new THREE.SpriteMaterial({
+        map: factory.tex,
+        transparent: true,
+        depthTest: true,
+      })
+    );
     factory.regist(text + Math.random(), this);
     this.factory = factory;
     this._text = text;

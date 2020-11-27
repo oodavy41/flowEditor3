@@ -9,7 +9,7 @@ export default class Land extends THREE.Mesh implements flowIF {
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: (value: any) => void };
+  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
   onMouseMove: (
     point: THREE.Vector3,
     event?: MouseEvent,
@@ -22,6 +22,7 @@ export default class Land extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
+        depthTest: true,
         opacity: 0.5,
       })
     );
@@ -47,19 +48,32 @@ export default class Land extends THREE.Mesh implements flowIF {
       }
     };
     this.onUpdateData = {
-      color: (value) => {
-        if (this.material instanceof THREE.MeshBasicMaterial) {
-          this.color = value;
-          this.material.color.set(value);
-        }
-      },
-      image: (value) => {
-        var texture = new THREE.TextureLoader().load(
-          URL.createObjectURL(value)
-        );
-        (this.material as THREE.MeshBasicMaterial).map = texture;
-        (this.material as THREE.MeshBasicMaterial).needsUpdate = true;
-      },
+      color: [
+        "颜色",
+        (value) => {
+          if (this.material instanceof THREE.MeshBasicMaterial) {
+            this.color = value;
+            this.material.color.set(value);
+          }
+        },
+      ],
+      image: [
+        "贴图",
+        (value) => {
+          var texture = new THREE.TextureLoader().load(
+            URL.createObjectURL(value)
+          );
+          (this.material as THREE.MeshBasicMaterial).map = texture;
+          (this.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        },
+      ],
+      number: [
+        "层级",
+        (value) => {
+          this.position.y = value;
+        },
+        this.position.y,
+      ],
     };
 
     this.onMouseMove = (point, event) => {

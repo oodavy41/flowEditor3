@@ -16,7 +16,7 @@ export default class flowLine extends THREE.Mesh implements flowIF {
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: () => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: (value: any) => void };
+  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
   onMouseMove?: (
     point: THREE.Vector3,
     event?: MouseEvent,
@@ -125,12 +125,15 @@ export default class flowLine extends THREE.Mesh implements flowIF {
       }
     };
     this.onUpdateData = {
-      color: (value) => {
-        if (this.material instanceof THREE.MeshBasicMaterial) {
-          this.color = value;
-          this.material.color.set(value);
-        }
-      },
+      color: [
+        "模型",
+        (value) => {
+          if (this.material instanceof THREE.MeshBasicMaterial) {
+            this.color = value;
+            this.material.color.set(value);
+          }
+        },
+      ],
     };
 
     this.drawLine = () => {

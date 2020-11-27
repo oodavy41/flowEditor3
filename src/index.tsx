@@ -1,5 +1,5 @@
 import React, { Component } from "react";
 import ReactDom from "react-dom";
-import App from "./App";
+import MainPlane from "./componments/MainPlane";
 
-ReactDom.render(<App />, document.getElementById("root"));
+ReactDom.render(<MainPlane />, document.getElementById("root"));

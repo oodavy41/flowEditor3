@@ -22,6 +22,7 @@ export default class TextBoard extends THREE.Mesh {
       new THREE.MeshBasicMaterial({
         map: factory.tex,
         transparent: true,
+        depthTest: true,
       })
     );
     factory.regist(text + Math.random(), this);

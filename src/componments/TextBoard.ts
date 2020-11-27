@@ -12,7 +12,7 @@ export default class TextNode extends TextBoard implements flowIF {
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: (value: any) => void };
+  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
   onMouseMove: (point: THREE.Vector3) => void;
 
   constructor(
@@ -46,17 +46,30 @@ export default class TextNode extends TextBoard implements flowIF {
       }
     };
     this.onUpdateData = {
-      color: (value) => {
-        this.color = value;
-      },
-      name: (value) => {
-        this.text = value;
-        this.name = value;
-      },
+      color: [
+        "颜色",
+        (value) => {
+          this.color = value;
+        },
+      ],
+      name: [
+        "文字",
+        (value) => {
+          this.text = value;
+          this.name = value;
+        },
+      ],
+      number: [
+        "层级",
+        (value) => {
+          this.position.y = value;
+        },
+        this.position.y,
+      ],
     };
 
     this.onMouseMove = (point) => {
-      this.position.set(point.x, 1, point.z);
+      this.position.set(point.x, this.position.y, point.z);
     };
   }
 }

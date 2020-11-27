@@ -1,9 +1,9 @@
 {
-  "name": "flowEdit",
+  "name": "flowEdit_alpha",
   "version": "1.0.0",
   "description": "",
   "data": {
-    "widgetName": "flowEdit",
+    "widgetName": "flowEdit_alpha",
     "version": "0.1"
   },
   "scripts": {
@@ -62,7 +62,7 @@
     "react-dev-utils": "^10.2.1",
     "style-loader": "^2.0.0",
     "url-loader": "^4.1.1",
-    "webpack": "^5.1.0",
+    "webpack": "^4.42.1",
     "webpack-cli": "^4.0.0",
     "webpack-dev-server": "^3.11.0",
     "webpack-node-externals": "^2.5.2",

@@ -17,6 +17,12 @@ import flowLine from "./Line";
 import Land from "./Land";
 import TextBoard from "./TextBoard";
 import MetaPanel from "./MetaPanel";
+import Popup from "./popup";
+
+interface MainIf {
+  dataProvider?: any[];
+  compModel?: boolean;
+}
 
 let textFactory = new FragFactory();
 
@@ -24,7 +30,9 @@ const POINT_BLOOM_LAYER = 1;
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(POINT_BLOOM_LAYER);
 
-export default function MainPlane() {
+export default function MainPlane(props: MainIf) {
+  const { dataProvider, compModel } = props;
+
   const canvas = useRef<HTMLCanvasElement>();
   const bodyDom = useRef<HTMLDivElement>();
   const [needsUpdate, setUpdate] = useState<number>();
@@ -32,12 +40,12 @@ export default function MainPlane() {
     changeCamera = useRef<() => void>(),
     pickedNode = useRef<flowIF & THREE.Object3D>(),
     updateCanvas = useRef<(key: string, value: any) => void>(),
-    sceneImport = useRef<() => void>(),
+    sceneImport = useRef<(value: string) => void>(),
     sceneOutport = useRef<() => void>(),
     outputArea = useRef<HTMLInputElement>();
-  const [state, setState] = useState(0);
+  const [poping, setPoping] = useState<[flowIF, number[]]>([null, []]);
   useEffect(() => {
-    bodyDom.current.appendChild(textFactory.canvas);
+    // bodyDom.current.appendChild(textFactory.canvas);
     let canvasSize = [canvas.current.clientWidth, canvas.current.clientHeight];
     var scene = new THREE.Scene();
     var camera = new THREE.OrthographicCamera(
@@ -52,6 +60,11 @@ export default function MainPlane() {
     camera.lookAt(0, 0, 0);
     scene.add(camera);
 
+    let light = new THREE.DirectionalLight();
+    light.position.set(-100,150,100)
+    light.lookAt(0,0,0)
+    scene.add(light);
+
     var renderer = new THREE.WebGLRenderer({ canvas: canvas.current });
     renderer.setSize(canvasSize[0], canvasSize[1]);
 
@@ -63,6 +76,7 @@ export default function MainPlane() {
       new THREE.MeshBasicMaterial({
         color: "white",
         transparent: true,
+        depthTest: true,
         opacity: 0.1,
       })
     );
@@ -242,13 +256,24 @@ export default function MainPlane() {
       // See if the ray from the camera into the world hits one of our meshes
       var intersects = raycaster.intersectObjects(objArray);
       if (intersects.length > 0) {
-        let result = intersects[0].object as flowNode;
+        let result = intersects[0].object as flowIF & THREE.Object3D;
         if (pickedNode.current && pickedNode.current !== result) {
           pickedNode.current.switchLayer(POINT_BLOOM_LAYER, false);
         }
         pickedNode.current = result;
         result.switchLayer(POINT_BLOOM_LAYER, true);
-        if (event.shiftKey) {
+        if (event.ctrlKey && result instanceof flowNode) {
+          let pos = new THREE.Vector3().copy(result.position);
+          pos = pos.project(camera);
+          setPoping([
+            result,
+            [
+              ((pos.x + 1) * canvasSize[0]) / 2,
+              ((1 - pos.y) * canvasSize[1]) / 2,
+            ],
+          ]);
+        }
+        if (event.shiftKey && result instanceof flowNode) {
           picked = false;
           if (lineNode[0]) {
             lineNode[1] = result;
@@ -292,9 +317,9 @@ export default function MainPlane() {
     canvas.current.addEventListener("mousedown", onMouseDown);
     canvas.current.addEventListener("mouseup", onMouseUp);
 
-    sceneImport.current = () => {
+    sceneImport.current = (value) => {
       var jsonLoader = new THREE.ObjectLoader();
-      let url = `data:,${outputArea.current.value}`;
+      let url = `data:,${value}`;
       jsonLoader.load(url, (obj) => {
         scene.add(obj);
       });
@@ -302,47 +327,62 @@ export default function MainPlane() {
     sceneOutport.current = () => {
       outputArea.current.value = JSON.stringify(scene.toJSON());
     };
+
+    if (dataProvider && dataProvider[0]) sceneImport.current(dataProvider[0]);
   }, [0]);
   return (
     <div className={styles.main} ref={bodyDom}>
-      <div className={styles.buttons}>
-        <div
-          className={[styles.rotateButton, styles.button].join(" ")}
-          onClick={() => changeCamera.current && changeCamera.current()}
-        >
-          切换视角
+      {!compModel && (
+        <div className={styles.buttons}>
+          <div
+            className={[styles.rotateButton, styles.button].join(" ")}
+            onClick={() => changeCamera.current && changeCamera.current()}
+          >
+            切换视角
+          </div>
+          <div
+            className={[styles.addButton, styles.button].join(" ")}
+            onClick={() => addNode.current("NODE")}
+          >
+            + 添加节点
+          </div>
+          <div
+            className={[styles.addButton, styles.button].join(" ")}
+            onClick={() => addNode.current("TEXT")}
+          >
+            + 添加文字
+          </div>
+          <div
+            className={[styles.addButton, styles.button].join(" ")}
+            onClick={() => addNode.current("PLANE")}
+          >
+            + 添加范围
+          </div>
         </div>
-        <div
-          className={[styles.addButton, styles.button].join(" ")}
-          onClick={() => addNode.current("NODE")}
-        >
-          + 添加节点
-        </div>
-        <div
-          className={[styles.addButton, styles.button].join(" ")}
-          onClick={() => addNode.current("TEXT")}
-        >
-          + 添加文字
-        </div>
-        <div
-          className={[styles.addButton, styles.button].join(" ")}
-          onClick={() => addNode.current("PLANE")}
-        >
-          + 添加范围
-        </div>
-      </div>
+      )}
 
-      <canvas className={styles.mainCanvas} ref={canvas}></canvas>
-      <MetaPanel
-        update={needsUpdate}
-        canvasUpdater={updateCanvas}
-        pickedUpdater={pickedNode}
-      ></MetaPanel>
-      <div>
-        <button onClick={() => sceneOutport.current()}>导出</button>
-        <button onClick={() => sceneImport.current()}>导入</button>
-        <input type="textarea" ref={outputArea}></input>
+      <div style={{ position: "relative" }}>
+        <canvas className={styles.mainCanvas} ref={canvas}></canvas>
+        <Popup node={poping[0]} position={poping[1]}></Popup>
       </div>
+      {!compModel && (
+        <>
+          <MetaPanel
+            update={needsUpdate}
+            canvasUpdater={updateCanvas}
+            pickedUpdater={pickedNode}
+          ></MetaPanel>
+          <div>
+            <button onClick={() => sceneOutport.current()}>导出</button>
+            <button
+              onClick={() => sceneImport.current(outputArea.current.value)}
+            >
+              导入
+            </button>
+            <input type="textarea" ref={outputArea}></input>
+          </div>
+        </>
+      )}
     </div>
   );
 }

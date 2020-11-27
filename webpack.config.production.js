@@ -9,7 +9,7 @@ const publicPathName = "custom";
 const widgetPathName = data.widgetName;
 
 module.exports = {
-  entry: "./src/production.ts",
+  entry: "./src/production.tsx",
   mode: "production",
   output: {
     publicPath: "./",
