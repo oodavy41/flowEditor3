@@ -1,12 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React from "react";
 import * as THREE from "three";
+import { Object3D } from "three";
+import dagre from "dagre";
 
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-
-import { Object3D } from "three";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 
 import styles from "./MainPlane.less";
 
@@ -18,10 +20,16 @@ import Land from "./Land";
 import TextBoard from "./TextBoard";
 import MetaPanel from "./MetaPanel";
 import Popup from "./popup";
+import { render } from "react-dom";
 
 interface MainIf {
   dataProvider?: any[];
   compModel?: boolean;
+}
+interface MainState {
+  displayMode: boolean;
+  poping: [flowIF, number[]];
+  pickedNode: flowIF & THREE.Object3D;
 }
 
 let textFactory = new FragFactory();
@@ -30,106 +38,144 @@ const POINT_BLOOM_LAYER = 1;
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(POINT_BLOOM_LAYER);
 
-export default function MainPlane(props: MainIf) {
-  const { dataProvider, compModel } = props;
+const canvasWH = [1280, 720];
+const defaultCameraHeight = 1200;
 
-  const canvas = useRef<HTMLCanvasElement>();
-  const bodyDom = useRef<HTMLDivElement>();
-  const [needsUpdate, setUpdate] = useState<number>();
-  const addNode = useRef<(flag: string) => void>(),
-    changeCamera = useRef<() => void>(),
-    pickedNode = useRef<flowIF & THREE.Object3D>(),
-    updateCanvas = useRef<(key: string, value: any) => void>(),
-    sceneImport = useRef<(value: string) => void>(),
-    sceneOutport = useRef<() => void>(),
-    outputArea = useRef<HTMLInputElement>();
-  const [poping, setPoping] = useState<[flowIF, number[]]>([null, []]);
-  useEffect(() => {
-    // bodyDom.current.appendChild(textFactory.canvas);
-    let canvasSize = [canvas.current.clientWidth, canvas.current.clientHeight];
+export default class MainPlane extends React.Component<MainIf, MainState> {
+  canvas: HTMLCanvasElement;
+  bodyDom: HTMLDivElement;
+  objArray: Array<flowIF & THREE.Object3D>;
+  addNode: (flag: string) => void;
+  changeCamera: () => void;
+  onResize: () => void;
+  onDispose: () => void;
+  updateCanvas: (key: string, value: any) => void;
+  sceneImport: (value: string) => void;
+  sceneOutport: () => string;
+  outputArea: HTMLInputElement;
+  saveInterval: number;
+
+  constructor(props: MainIf) {
+    super(props);
+    this.canvas = undefined;
+    this.bodyDom = undefined;
+    this.state = { displayMode: false, pickedNode: null, poping: [null, []] };
+  }
+  componentDidMount() {
+    const { dataProvider, compModel } = this.props;
+    // this.bodyDom.appendChild(textFactory.canvas);
+    let canvasRect = this.canvas.getBoundingClientRect();
+    let canvasSize = [
+      canvasRect.width,
+      canvasRect.height,
+      canvasRect.left,
+      canvasRect.top,
+    ];
     var scene = new THREE.Scene();
     var camera = new THREE.OrthographicCamera(
-      -canvasSize[0] / 2,
-      canvasSize[0] / 2,
-      canvasSize[1] / 2,
-      -canvasSize[1] / 2,
+      -canvasWH[0] / 2,
+      canvasWH[0] / 2,
+      canvasWH[1] / 2,
+      -canvasWH[1] / 2,
       1,
       10000
     );
-    camera.position.set(1500, 9000, 1500);
+    camera.position.set(-1500, defaultCameraHeight, 1500);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
 
-    let light = new THREE.DirectionalLight();
-    light.position.set(-100,150,100)
-    light.lookAt(0,0,0)
-    scene.add(light);
+    let resizeCountDown: number;
+    this.onResize = () => {
+      clearTimeout(resizeCountDown);
+      resizeCountDown = window.setTimeout(() => {
+        let canvasRect = this.canvas.getBoundingClientRect();
+        canvasSize = [
+          canvasRect.width,
+          canvasRect.height,
+          canvasRect.left,
+          canvasRect.top,
+        ];
+      }, 2000);
+      console.log(canvasRect, canvasSize);
+    };
+    this.onResize();
+    window.addEventListener("resize", this.onResize);
 
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas.current });
-    renderer.setSize(canvasSize[0], canvasSize[1]);
+    let light = new THREE.DirectionalLight("#fff", 0.5);
+    light.position.set(-100, 200, -100);
+    light.lookAt(0, 0, 0);
+    scene.add(light);
+    let ambientLight = new THREE.AmbientLight("#fff", 0.5);
+    scene.add(ambientLight);
+
+    var renderer = new THREE.WebGLRenderer({ canvas: this.canvas });
+    renderer.setSize(canvasWH[0], canvasWH[1]);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor("#04152C");
+    renderer.sortObjects = true;
+
+    this.onDispose = () => {
+      renderer.forceContextLoss();
+    };
 
     let gridHelper = new THREE.GridHelper(2000, 50);
     gridHelper.position.y = -1;
     scene.add(gridHelper);
     let ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(canvasSize[0], canvasSize[1]),
+      new THREE.PlaneGeometry(canvasWH[0], canvasWH[1]),
       new THREE.MeshBasicMaterial({
         color: "white",
         transparent: true,
-        depthTest: true,
+        depthWrite: false,
         opacity: 0.1,
       })
     );
     ground.rotateX(-Math.PI / 2);
     scene.add(ground);
 
+    let pointing: (flowIF & THREE.Object3D) | null = null;
+    let picked = false;
+    let lineNode: flowNode[] = [];
+    let lands: Land[] = [];
+
     const darkMaterial = new THREE.MeshBasicMaterial({ color: "black" });
     const materials: { [key: string]: THREE.Material | THREE.Material[] } = {};
-    const renderScene = new RenderPass(scene, camera);
 
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(canvasSize[0], canvasSize[1]),
-      1,
-      0.2,
-      0.1
-    );
-    bloomPass.threshold = 0.1;
-    bloomPass.strength = 0.3;
-    bloomPass.radius = 0.2;
-
-    const bloomComposer = new EffectComposer(renderer);
-    bloomComposer.renderToScreen = false;
-    bloomComposer.addPass(renderScene);
-    bloomComposer.addPass(bloomPass);
-
-    const finalPass = new ShaderPass(
-      new THREE.ShaderMaterial({
-        uniforms: {
-          baseTexture: { value: null },
-          bloomTexture: { value: bloomComposer.renderTarget2.texture },
-        },
-        vertexShader: `varying vec2 vUv;void main() {vUv = uv;gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );}`,
-        fragmentShader: `uniform sampler2D baseTexture;uniform sampler2D bloomTexture;varying vec2 vUv;void main() {gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 1.0 ) * texture2D( bloomTexture, vUv ) );}`,
-        defines: {},
-      }),
-      "baseTexture"
-    );
-    finalPass.needsSwap = true;
-
+    const renderPass = new RenderPass(scene, camera);
     const finalComposer = new EffectComposer(renderer);
-    finalComposer.addPass(renderScene);
-    finalComposer.addPass(finalPass);
 
-    function animate() {
+    finalComposer.addPass(renderPass);
+    let outlinePass = new OutlinePass(
+      new THREE.Vector2(canvasWH[0], canvasWH[1]),
+      scene,
+      camera
+    );
+    finalComposer.addPass(outlinePass);
+    let landOutLine = new OutlinePass(
+      new THREE.Vector2(canvasWH[0], canvasWH[1]),
+      scene,
+      camera
+    );
+    landOutLine.visibleEdgeColor = new THREE.Color("#333");
+    landOutLine.selectedObjects = lands;
+    finalComposer.addPass(landOutLine);
+    let fxaaPass = new ShaderPass(FXAAShader);
+    const pixelRatio = renderer.getPixelRatio();
+    fxaaPass.material.uniforms["resolution"].value.x =
+      1 / (canvasWH[0] * pixelRatio);
+    fxaaPass.material.uniforms["resolution"].value.y =
+      1 / (canvasWH[1] * pixelRatio);
+    finalComposer.addPass(fxaaPass);
+
+    let objArray: Array<flowIF & THREE.Object3D> = [];
+    this.objArray = objArray;
+    let lastTime = 0;
+    function animate(t: number) {
       requestAnimationFrame(animate);
-      // renderer.render(scene, camera);
-      scene.traverse((obj: THREE.Mesh) => {
-        if (obj.isMesh && bloomLayer.test(obj.layers) === false) {
-          materials[obj.uuid] = obj.material;
-          obj.material = darkMaterial;
-        }
-      });
-      bloomComposer.render();
+      let delta = t - lastTime;
+      lastTime = t;
+
+      outlinePass.selectedObjects = pointing ? [pointing] : [];
       scene.traverse((obj: THREE.Mesh) => {
         if (materials[obj.uuid]) {
           obj.material = materials[obj.uuid];
@@ -137,39 +183,41 @@ export default function MainPlane(props: MainIf) {
         }
       });
       finalComposer.render();
+      outlinePass.selectedObjects = [];
+
+      objArray.forEach((obj) => obj.tick && obj.tick(delta));
     }
-    animate();
-
-    var raycaster = new THREE.Raycaster();
-    var mouse = new THREE.Vector2();
-
-    let objArray: Array<flowIF & THREE.Object3D> = [];
+    animate(0);
 
     let canvasUpdatefunMap = {
       cameraHeight: (value: any) => {
         camera.position.y = +value;
+        console.log(value);
         camera.lookAt(0, 0, 0);
+      },
+      sceneLight: (value: any) => {
+        light.intensity = 1 - value;
+        ambientLight.intensity = value;
       },
       backgroundColor: (value: any) => {
         renderer.setClearColor(value, 1);
       },
     };
-    updateCanvas.current = (
-      key: keyof typeof canvasUpdatefunMap,
-      value: any
-    ) => {
+    this.updateCanvas = (key: keyof typeof canvasUpdatefunMap, value: any) => {
       canvasUpdatefunMap[key](value);
     };
 
-    changeCamera.current = () => {
-      if (camera.position.x > 0) {
+    var raycaster = new THREE.Raycaster();
+    var mouse = new THREE.Vector2();
+    this.changeCamera = () => {
+      if (camera.position.x !== 0) {
         camera.position.set(0, 2500, 0);
       } else {
-        camera.position.set(1500, 2500, 1500);
+        camera.position.set(-1500, defaultCameraHeight, 1500);
       }
       camera.lookAt(0, 0, 0);
     };
-    addNode.current = (flag: string) => {
+    this.addNode = (flag: string) => {
       switch (flag) {
         case "NODE":
           objArray.push(
@@ -177,23 +225,24 @@ export default function MainPlane(props: MainIf) {
               scene,
               textFactory,
               `NODE${objArray.length}`,
-              "#" +
-                Math.floor(Math.random() * 0xffffff)
-                  .toString(16)
-                  .padStart(6, "0"),
-              ["DODECAHE", "CYLINDER", "BOX"][Math.floor(Math.random() * 3)]
+              "#ffd",
+              // Math.floor(Math.random() * 0xffffff)
+              //   .toString(16)
+              //   .padStart(6, "0"),
+              // ["DODECAHE", "CYLINDER", "BOX"][Math.floor(Math.random() * 3)]
+              "BOX"
             )
           );
           break;
         case "PLANE":
-          objArray.push(
-            new Land(
-              scene,
-              Math.floor(Math.random() * 0xffffff)
-                .toString(16)
-                .padStart(6, "0")
-            )
+          let land = new Land(
+            scene,
+            Math.floor(Math.random() * 0xffffff)
+              .toString(16)
+              .padStart(6, "0"),
+            lands
           );
+          objArray.push(land);
           break;
         case "TEXT":
           objArray.push(
@@ -205,19 +254,15 @@ export default function MainPlane(props: MainIf) {
       }
     };
 
-    let pointing: (flowIF & THREE.Object3D) | null = null;
-    let picked = false;
-    let lineNode: flowNode[] = [];
-
     // let locate = new THREE.Mesh(
     //   new THREE.BoxGeometry(10, 100, 10),
     //   new THREE.MeshBasicMaterial({ color: "red" })
     // );
     // scene.add(locate);
 
-    function onMouseMove(event: MouseEvent) {
-      mouse.x = (event.clientX / canvas.current.clientWidth) * 2 - 1;
-      mouse.y = -(event.clientY / canvas.current.clientHeight) * 2 + 1;
+    let onMouseMove = (event: MouseEvent) => {
+      mouse.x = ((event.clientX - canvasSize[2]) / canvasSize[0]) * 2 - 1;
+      mouse.y = -((event.clientY - canvasSize[3]) / canvasSize[1]) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
       var intersects = raycaster.intersectObject(ground);
@@ -227,10 +272,10 @@ export default function MainPlane(props: MainIf) {
       if (picked) {
         if (
           intersects.length > 0 &&
-          pickedNode.current &&
-          pickedNode.current.onMouseMove
+          this.state.pickedNode &&
+          this.state.pickedNode.onMouseMove
         ) {
-          pickedNode.current.onMouseMove(intersects[0].point, event);
+          this.state.pickedNode.onMouseMove(intersects[0].point, event);
         }
       }
       var intersects = raycaster.intersectObjects(objArray);
@@ -245,11 +290,12 @@ export default function MainPlane(props: MainIf) {
         pointing && pointing.switchLayer(POINT_BLOOM_LAYER, false);
         pointing = null;
       }
-    }
+    };
 
-    function onMouseDown(event: MouseEvent) {
-      mouse.x = (event.clientX / canvas.current.clientWidth) * 2 - 1;
-      mouse.y = -(event.clientY / canvas.current.clientHeight) * 2 + 1;
+    let onMouseDown = (event: MouseEvent) => {
+      mouse.x = ((event.clientX - canvasSize[2]) / canvasSize[0]) * 2 - 1;
+      mouse.y = -((event.clientY - canvasSize[3]) / canvasSize[1]) * 2 + 1;
+      console.log(event.clientX, event.clientY, canvasSize);
 
       raycaster.setFromCamera(mouse, camera);
 
@@ -257,33 +303,30 @@ export default function MainPlane(props: MainIf) {
       var intersects = raycaster.intersectObjects(objArray);
       if (intersects.length > 0) {
         let result = intersects[0].object as flowIF & THREE.Object3D;
-        if (pickedNode.current && pickedNode.current !== result) {
-          pickedNode.current.switchLayer(POINT_BLOOM_LAYER, false);
+        if (this.state.pickedNode && this.state.pickedNode !== result) {
+          this.state.pickedNode.switchLayer(POINT_BLOOM_LAYER, false);
         }
-        pickedNode.current = result;
+        this.setState({ pickedNode: result });
         result.switchLayer(POINT_BLOOM_LAYER, true);
         if (event.ctrlKey && result instanceof flowNode) {
           let pos = new THREE.Vector3().copy(result.position);
           pos = pos.project(camera);
-          setPoping([
-            result,
-            [
-              ((pos.x + 1) * canvasSize[0]) / 2,
-              ((1 - pos.y) * canvasSize[1]) / 2,
+          this.setState({
+            poping: [
+              result,
+              [
+                ((pos.x + 1) * canvasWH[0]) / 2,
+                ((1 - pos.y) * canvasWH[1]) / 2,
+              ],
             ],
-          ]);
+          });
         }
         if (event.shiftKey && result instanceof flowNode) {
           picked = false;
           if (lineNode[0]) {
             lineNode[1] = result;
             objArray.push(
-              new flowLine(
-                scene,
-                lineNode[0],
-                lineNode[1],
-                (0.5 + 0.5 * Math.random()) * 0xffffff
-              )
+              new flowLine(scene, lineNode[0], lineNode[1], "#ffe")
             );
             lineNode = [];
           } else {
@@ -291,100 +334,228 @@ export default function MainPlane(props: MainIf) {
           }
         } else {
           picked = true;
-          pickedNode.current = result;
+          this.setState({ pickedNode: result });
           (result as flowIF).onClick(raycaster);
         }
       } else {
         console.log("pickNone!", objArray);
-        if (pickedNode.current) {
-          (pickedNode.current as flowIF).offClick(raycaster);
-          (pickedNode.current as flowIF).switchLayer(POINT_BLOOM_LAYER, false);
+        if (this.state.pickedNode) {
+          (this.state.pickedNode as flowIF).offClick(raycaster);
+          (this.state.pickedNode as flowIF).switchLayer(
+            POINT_BLOOM_LAYER,
+            false
+          );
         }
-        pickedNode.current = null;
+        this.setState({ pickedNode: null });
       }
-      setUpdate(Math.random());
-    }
+    };
 
-    function onMouseUp(event: MouseEvent) {
-      if (pickedNode.current && pickedNode.current.offClick) {
-        pickedNode.current.offClick();
+    let onMouseUp = (event: MouseEvent) => {
+      if (this.state.pickedNode && this.state.pickedNode.offClick) {
+        this.state.pickedNode.offClick();
       }
-      pickedNode.current = null;
+      // this.setState({ pickedNode: null });
       picked = false;
-    }
+    };
 
-    canvas.current.addEventListener("mousemove", onMouseMove);
-    canvas.current.addEventListener("mousedown", onMouseDown);
-    canvas.current.addEventListener("mouseup", onMouseUp);
+    this.canvas.addEventListener("mousemove", onMouseMove);
+    this.canvas.addEventListener("mousedown", onMouseDown);
+    this.canvas.addEventListener("mouseup", onMouseUp);
 
-    sceneImport.current = (value) => {
-      var jsonLoader = new THREE.ObjectLoader();
-      let url = `data:,${value}`;
-      jsonLoader.load(url, (obj) => {
-        scene.add(obj);
+    this.sceneImport = (value) => {
+      console.log(value);
+      let objs = JSON.parse(value);
+      console.log(objs);
+      let nodes: { [key: string]: flowNode } = {};
+      let lines: any[] = [];
+      objs.forEach((obj: any) => {
+        switch (obj.type) {
+          case "Land":
+            let land = new Land(scene, "#fff", lands);
+            land.fromADGEJSON(obj);
+            objArray.push(land);
+            break;
+          case "Node":
+            let node = new flowNode(scene, textFactory, "node", "#fff");
+            nodes[obj.uuid] = node;
+            node.fromADGEJSON(obj);
+            objArray.push(node);
+            break;
+          case "TextBoard":
+            let tb = new TextBoard(scene, "name", 20, "#fff", textFactory);
+            tb.fromADGEJSON(obj);
+            objArray.push(tb);
+            break;
+          case "Line":
+            lines.push(obj);
+            break;
+          default:
+            break;
+        }
+      });
+      console.log(lines);
+      lines.forEach((lineObj) => {
+        let start = nodes[lineObj.startID],
+          end = nodes[lineObj.endID];
+        if (start && end) {
+          let line = new flowLine(scene, start, end, "#fff");
+          line.fromADGEJSON(lineObj);
+          objArray.push(line);
+        }
       });
     };
-    sceneOutport.current = () => {
-      outputArea.current.value = JSON.stringify(scene.toJSON());
+    this.sceneOutport = () => {
+      let lineIdMap: any[] = [];
+      console.log("outport", objArray);
+      let output = objArray.map((obj) => obj.toADGEJSON(lineIdMap));
+      output.push(...lineIdMap);
+      return JSON.stringify(output);
     };
 
-    if (dataProvider && dataProvider[0]) sceneImport.current(dataProvider[0]);
-  }, [0]);
-  return (
-    <div className={styles.main} ref={bodyDom}>
-      {!compModel && (
+    if (dataProvider && dataProvider[0]) {
+      this.sceneImport(dataProvider[0]);
+      this.setState({ displayMode: true });
+    } else {
+      let save = localStorage.getItem("saveJSON");
+      if (save && save !== "[]") {
+        if (confirm("发现存档，是否载入?")) {
+          this.sceneImport(save);
+        }
+      }
+    }
+
+    // this.setState({ needsUpdate: Math.random() });
+    this.saveInterval = window.setInterval(() => {
+      localStorage.setItem("saveJSON", this.sceneOutport());
+    }, 60000);
+  }
+
+  componentWillUnmount() {
+    if (this.saveInterval) {
+      clearInterval(this.saveInterval);
+    }
+    this.onDispose();
+  }
+
+  layout(objs: THREE.Object3D[]) {
+    let g = new dagre.graphlib.Graph();
+    g.setGraph({});
+
+    g.setDefaultEdgeLabel(function () {
+      return {};
+    });
+
+    let nodes: flowNode[] = [];
+    objs.forEach((obj) => {
+      if (obj instanceof flowNode) {
+        nodes.push(obj);
+        g.setNode(obj.uuid, { label: obj.text, width: 60, height: 60 });
+      }
+    });
+    nodes.forEach((obj) => {
+      obj.starts.forEach((line) => {
+        g.setEdge(line.start.uuid, line.end.uuid);
+      });
+    });
+
+    dagre.layout(g);
+    g.nodes().forEach((v) => {
+      let info = g.node(v);
+      console.log(info.label, " x:" + info.x, " y:" + info.y);
+    });
+    g.edges().forEach((e) => {
+      let info = g.edge(e);
+      console.log(`${e.v} -> ${e.w} :`, info.points);
+    });
+  }
+
+  render() {
+    const { dataProvider } = this.props;
+    const { displayMode } = this.state;
+    const { poping } = this.state;
+    return (
+      <div className={styles.main} ref={(m) => (this.bodyDom = m)}>
         <div className={styles.buttons}>
           <div
             className={[styles.rotateButton, styles.button].join(" ")}
-            onClick={() => changeCamera.current && changeCamera.current()}
+            onClick={() => this.changeCamera && this.changeCamera()}
           >
             切换视角
           </div>
-          <div
-            className={[styles.addButton, styles.button].join(" ")}
-            onClick={() => addNode.current("NODE")}
-          >
-            + 添加节点
-          </div>
-          <div
-            className={[styles.addButton, styles.button].join(" ")}
-            onClick={() => addNode.current("TEXT")}
-          >
-            + 添加文字
-          </div>
-          <div
-            className={[styles.addButton, styles.button].join(" ")}
-            onClick={() => addNode.current("PLANE")}
-          >
-            + 添加范围
-          </div>
+          {!displayMode && (
+            <>
+              <div
+                className={[styles.addButton, styles.button].join(" ")}
+                onClick={() => this.addNode("NODE")}
+              >
+                + 添加节点
+              </div>
+              <div
+                className={[styles.addButton, styles.button].join(" ")}
+                onClick={() => this.addNode("TEXT")}
+              >
+                + 添加文字
+              </div>
+              <div
+                className={[styles.addButton, styles.button].join(" ")}
+                onClick={() => this.addNode("PLANE")}
+              >
+                + 添加范围
+              </div>
+              <div
+                className={[styles.addButton, styles.button].join(" ")}
+                onClick={() => this.layout(this.objArray)}
+              >
+                排版
+              </div>
+            </>
+          )}
         </div>
-      )}
 
-      <div style={{ position: "relative" }}>
-        <canvas className={styles.mainCanvas} ref={canvas}></canvas>
-        <Popup node={poping[0]} position={poping[1]}></Popup>
+        <div style={{ position: "relative" }}>
+          <canvas
+            className={styles.mainCanvas}
+            ref={(m) => (this.canvas = m)}
+          ></canvas>
+          <Popup node={poping[0]} position={poping[1]}></Popup>
+        </div>
+        <MetaPanel
+          compModel={displayMode}
+          canvasUpdater={this.updateCanvas}
+          pickedUpdater={this.state.pickedNode}
+        ></MetaPanel>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            paddingRight: 10,
+            color: "#fff",
+            backgroundColor: "rgba(0,0,0,.4)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={displayMode}
+            onChange={(t) => this.setState({ displayMode: t.target.checked })}
+          ></input>
+          展示模式
+          {!displayMode && (
+            <div>
+              <button
+                onClick={() => (this.outputArea.value = this.sceneOutport())}
+              >
+                导出
+              </button>
+              <button onClick={() => this.sceneImport(this.outputArea.value)}>
+                导入
+              </button>
+              <input type="textarea" ref={(m) => (this.outputArea = m)}></input>
+            </div>
+          )}
+        </div>
       </div>
-      {!compModel && (
-        <>
-          <MetaPanel
-            update={needsUpdate}
-            canvasUpdater={updateCanvas}
-            pickedUpdater={pickedNode}
-          ></MetaPanel>
-          <div>
-            <button onClick={() => sceneOutport.current()}>导出</button>
-            <button
-              onClick={() => sceneImport.current(outputArea.current.value)}
-            >
-              导入
-            </button>
-            <input type="textarea" ref={outputArea}></input>
-          </div>
-        </>
-      )}
-    </div>
-  );
+    );
+  }
 }
 
 function switchBloom(obj: THREE.Object3D | flowNode, flag: boolean) {

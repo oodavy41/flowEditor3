@@ -21,13 +21,17 @@ export default class linePoint extends THREE.Mesh implements flowIF {
   ) => void;
   constructor(line: flowLine, position: THREE.Vector3) {
     super(
-      new THREE.SphereGeometry(5),
+      new THREE.SphereGeometry(7),
       new THREE.MeshBasicMaterial({
         color: "red",
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.7,
       })
     );
     line.add(this);
     this.position.copy(position);
+    this.layers.disable(0);
 
     this.isPicked = false;
     this.isHoving = false;
@@ -46,7 +50,10 @@ export default class linePoint extends THREE.Mesh implements flowIF {
       }
     };
     this.onMouseMove = (point) => {
-      this.position.set(point.x, 0, point.z);
+      this.position.set(point.x, 5, point.z);
     };
   }
+
+  toADGEJSON() {}
+  fromADGEJSON(json: any) {}
 }

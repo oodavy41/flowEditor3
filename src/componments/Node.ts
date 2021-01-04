@@ -8,12 +8,16 @@ import FragFactory from "./textRenderer/fragFactory";
 
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
+const SIZE = 40;
+
 export default class flowNode extends THREE.Mesh implements flowIF {
-  name: string;
+  _name: string;
   nameText: TextBoard;
   mainMesh: THREE.Mesh;
+  line: THREE.LineSegments;
   iconPlane: THREE.Mesh;
-  color: string | number;
+  _color: string | number;
+  _lineColor: string | number;
   starts: flowLine[];
   ends: flowLine[];
   isPicked: boolean;
@@ -21,7 +25,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
   onClick: () => void;
   offClick: () => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
+  onUpdateData: { [key: string]: [string, (value: any) => void, any?, any[]?] };
   onMouseMove: (point: THREE.Vector3) => void;
 
   constructor(
@@ -32,26 +36,15 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     type: string = "BOX"
   ) {
     super(
-      new THREE.BoxGeometry(75, 150, 75),
+      new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
       new THREE.MeshBasicMaterial({
         transparent: true,
-        depthTest: true,
+        depthWrite: false,
         opacity: 0,
       })
     );
-    let geo: THREE.Geometry;
-    switch (type) {
-      case "CYLINDER":
-        geo = new THREE.CylinderGeometry(35, 40, 80);
-        break;
-      case "DODECAHE":
-        geo = new THREE.DodecahedronGeometry(40);
-        break;
-      case "BOX":
-      default:
-        geo = new THREE.BoxGeometry(80, 80, 80);
-        break;
-    }
+    this.position.y = 5;
+    let geo = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
     this.mainMesh = new THREE.Mesh(
       geo,
       new THREE.MeshLambertMaterial({
@@ -61,34 +54,41 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     const edges = new THREE.EdgesGeometry(this.mainMesh.geometry);
     const line = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: "#fff", linewidth: 0 })
+      new THREE.LineBasicMaterial({ color: "#3ff", linewidth: 1 })
     );
+    this.line = line;
     line.scale.set(1.01, 1.01, 1.01);
     this.mainMesh.add(line);
-    this.mainMesh.position.y = 40;
+    this.mainMesh.position.y = SIZE / 2;
     this.add(this.mainMesh);
 
     this.iconPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(75, 75),
+      new THREE.PlaneGeometry(SIZE * 0.9, SIZE * 0.9),
       new THREE.MeshBasicMaterial({
         color: "#fff",
         transparent: true,
-        depthTest: true,
+        depthWrite: false,
         opacity: 0.8,
       })
     );
-    this.iconPlane.position.y = 81;
+    this.iconPlane.position.y = SIZE + 1;
     this.iconPlane.rotateX(-Math.PI / 2);
     this.add(this.iconPlane);
     this.iconPlane.visible = false;
 
-    this.color = color;
-    this.name = name;
+    this._color = color;
+    this._lineColor = "#30f0f0";
+    this._name = name;
 
-
-
-    this.nameText = new TextBoard(scene, name, 20, "#fff", textFactory);
-    this.nameText.position.z = 60;
+    this.nameText = new TextBoard(
+      scene,
+      name,
+      (SIZE * 2) / 4,
+      "#fff",
+      textFactory
+    );
+    this.nameText.position.z = SIZE * 1.2;
+    this.nameText.position.y = 10;
     this.add(this.nameText);
     scene.add(this);
 
@@ -99,9 +99,13 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     this.isHoving = false;
     this.onClick = () => {
       this.isPicked = true;
+      this.starts.forEach((_: flowLine) => _.onNodeClick(true, this));
+      this.ends.forEach((_: flowLine) => _.onNodeClick(false, this));
     };
     this.offClick = () => {
       this.isPicked = false;
+      this.starts.forEach((_: flowLine) => _.offNodeClick());
+      this.ends.forEach((_: flowLine) => _.offNodeClick());
     };
     this.switchLayer = (layer, flag) => {
       this.isHoving = flag;
@@ -115,36 +119,54 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     };
     this.onUpdateData = {
       color: [
-        "颜色0",
+        "颜色",
         (value) => {
-          if (this.mainMesh.material instanceof THREE.MeshBasicMaterial) {
-            this.color = value;
-            this.mainMesh.material.color.set(value);
-          }
+          this.color = value;
         },
+        () => this.color,
+      ],
+      list_type: [
+        "形状",
+        (value) => {
+          switch (value) {
+            case "CYLINDER":
+              this.mainMesh.geometry = new THREE.CylinderGeometry(
+                SIZE / 3,
+                SIZE / 2,
+                SIZE
+              );
+              break;
+            case "DODECAHE":
+              this.mainMesh.geometry = new THREE.DodecahedronGeometry(SIZE / 2);
+              break;
+            case "BOX":
+            default:
+              this.mainMesh.geometry = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
+              break;
+          }
+          line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+        },
+        () => "BOX",
+        ["CYLINDER", "DODECAHE", "BOX"],
+      ],
+      color_line: [
+        "描边颜色",
+        (value) => {
+          this.lineColor = value;
+        },
+        () => this.lineColor,
       ],
       name: [
         "名称",
         (value) => {
-          this.nameText.text = value;
+          this.text = value;
         },
+        () => this.text,
       ],
-      // image: [
-      //   "贴图",
-      //   (value) => {
-      //     var texture = new THREE.TextureLoader().load(
-      //       URL.createObjectURL(value)
-      //     );
-      //     (this.mainMesh.material as THREE.MeshBasicMaterial).map = texture;
-      //     (this.mainMesh
-      //       .material as THREE.MeshBasicMaterial).needsUpdate = true;
-      //   },
-      // ],
       model: [
         "模型",
         (value) => {
           new OBJLoader().load(URL.createObjectURL(value), (obj) => {
-            console.log(obj);
             this.mainMesh.geometry = (obj.children[0] as THREE.Mesh).geometry;
             line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
           });
@@ -164,44 +186,120 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       ],
       number_icon_scaleX: [
         "图标x缩放",
-        (value) => (this.iconPlane.scale.x = value),
-        this.iconPlane.scale.x,
+        (value) => (this.iconPlane.scale.x = +value),
+        () => this.iconPlane.scale.x,
       ],
       number_icon_scaleY: [
         "图标y缩放",
-        (value) => (this.iconPlane.scale.y = value),
-        this.iconPlane.scale.y,
+        (value) => (this.iconPlane.scale.y = +value),
+        () => this.iconPlane.scale.y,
+      ],
+      number_iconHeight: [
+        "图片高度",
+        (value) => {
+          this.iconPlane.position.y = +value;
+        },
+        () => this.iconPlane.position.y,
       ],
       number_text: [
         "文字偏移",
         (value) => {
-          this.nameText.position.z = value;
+          this.nameText.position.z = +value;
         },
-        this.nameText.position.z,
+        () => this.nameText.position.z,
       ],
       number_scaleX: [
         "x缩放",
         (value) => (this.mainMesh.scale.x = value),
-        this.mainMesh.scale.x,
+        () => this.mainMesh.scale.x,
       ],
       number_scaleY: [
         "y缩放",
-        (value) => (this.mainMesh.scale.y = value),
-        this.mainMesh.scale.y,
+        (value) => {
+          this.mainMesh.scale.y = value;
+          this.mainMesh.position.y = (this.mainMesh.scale.y * SIZE) / 2;
+        },
+        () => this.mainMesh.scale.y,
       ],
       number_scaleZ: [
         "z缩放",
         (value) => (this.mainMesh.scale.z = value),
-        this.mainMesh.scale.z,
+        () => this.mainMesh.scale.z,
       ],
     };
 
     this.onMouseMove = (point) => {
-      this.position.set(point.x, 0, point.z);
+      this.position.set(point.x, 5, point.z);
       if (this.isPicked) {
         this.starts.forEach((_: flowLine) => _.updateFlowLine(true, this));
         this.ends.forEach((_: flowLine) => _.updateFlowLine(false, this));
       }
     };
+  }
+  set color(value) {
+    if (this.mainMesh.material) {
+      (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(value);
+      this._color = value;
+    }
+  }
+  get color() {
+    return this._color;
+  }
+  set lineColor(value) {
+    if (this.line.material instanceof THREE.LineBasicMaterial) {
+      this.line.material.color.set(value);
+      this._lineColor = value;
+    }
+  }
+  get lineColor() {
+    return this._lineColor;
+  }
+  set text(value) {
+    this._name = value;
+    this.nameText.text = value;
+  }
+  get text() {
+    return this._name;
+  }
+  toADGEJSON(lineArray: any[]) {
+    let ret: any = {};
+    ret.type = "Node";
+    ret.uuid = this.uuid;
+    ret.name = this.text;
+    ret.nameOffset = this.nameText.position.z;
+    ret.iconHeight = this.iconPlane.position.y;
+    ret.color = this.color;
+    ret.lineColor = this.lineColor;
+    ret.matrix = [
+      this.position.toArray(),
+      this.scale.toArray(),
+      this.rotation.toArray(),
+    ];
+    ret.mainMeshJson = this.mainMesh.toJSON();
+    ret.iconMesh = this.iconPlane.toJSON();
+    console.log(this.starts);
+    // lineArray.push(...this.starts.map((s) => s.toADGEJSON()));
+    return ret;
+  }
+  fromADGEJSON(json: any) {
+    this.text = json.name;
+    this.nameText.position.z = json.nameOffset;
+    this.color = json.color;
+    this.lineColor = json.lineColor;
+    new THREE.ObjectLoader().parse(json.mainMeshJson, (obj) => {
+      this.mainMesh.geometry = (obj as THREE.Mesh).geometry;
+      this.mainMesh.scale.copy((obj as THREE.Mesh).scale);
+      this.mainMesh.position.copy((obj as THREE.Mesh).position);
+      this.line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+    });
+    new THREE.ObjectLoader().parse(json.iconMesh, (obj) => {
+      this.remove(this.iconPlane);
+      this.iconPlane = obj as THREE.Mesh;
+      json.iconHeight && (obj.position.y = +json.iconHeight);
+      this.add(obj);
+    });
+    this.position.fromArray(json.matrix[0]);
+    this.scale.fromArray(json.matrix[1]);
+    this.rotation.fromArray(json.matrix[2]);
   }
 }

@@ -24,7 +24,7 @@ export default class TextNode extends TextBoard implements flowIF {
   ) {
     super(textFactory, text || "TEXT text", size || 40, color);
     this.name = text || "TEXT text";
-    this.position.y = 1;
+    this.position.y = 10;
     scene.add(this);
     this.rotateX(-Math.PI / 2);
     // this.rotateZ(Math.PI / 2);
@@ -64,12 +64,55 @@ export default class TextNode extends TextBoard implements flowIF {
         (value) => {
           this.position.y = value;
         },
-        this.position.y,
+        () => this.position.y,
+      ],
+      number_Size: [
+        "字号",
+        (value) => {
+          this.size = +value;
+        },
+        () => this.size,
+      ],
+      number_rotateX: [
+        "X旋转",
+        (value) => (this.rotation.x = value),
+        () => this.rotation.x,
+      ],
+      number_rotateY: [
+        "Y旋转",
+        (value) => (this.rotation.y = value),
+        () => this.rotation.y,
+      ],
+      number_rotateZ: [
+        "Z旋转",
+        (value) => (this.rotation.z = value),
+        () => this.rotation.z,
       ],
     };
 
     this.onMouseMove = (point) => {
       this.position.set(point.x, this.position.y, point.z);
     };
+  }
+  toADGEJSON() {
+    let ret: any = {};
+    ret.type = "TextBoard";
+    ret.color = this.color;
+    ret.size = this.size;
+    ret.text = this.text;
+    ret.matrix = [
+      this.position.toArray(),
+      this.scale.toArray(),
+      this.rotation.toArray(),
+    ];
+    return ret;
+  }
+  fromADGEJSON(json: any) {
+    this.color = json.color;
+    this.text = this.name = json.text;
+    this.size = json.size;
+    this.position.fromArray(json.matrix[0]);
+    this.scale.fromArray(json.matrix[1]);
+    this.rotation.fromArray(json.matrix[2]);
   }
 }

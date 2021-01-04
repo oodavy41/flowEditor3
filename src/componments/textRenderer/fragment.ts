@@ -18,7 +18,7 @@ export default class TextFrag extends THREE.Sprite {
       new THREE.SpriteMaterial({
         map: factory.tex,
         transparent: true,
-        depthTest: true,
+        depthWrite: false,
       })
     );
     factory.regist(text + Math.random(), this);
@@ -109,7 +109,8 @@ export default class TextFrag extends THREE.Sprite {
       "uv",
       new THREE.BufferAttribute(new Float32Array(this.uvs), 2)
     );
-    // this.geometry.computeBoundingSphere();
+
+    this.geometry.computeBoundingBox();
     this.material.map.needsUpdate = true;
   }
 }

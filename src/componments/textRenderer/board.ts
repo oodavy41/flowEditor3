@@ -21,8 +21,9 @@ export default class TextBoard extends THREE.Mesh {
       new THREE.BufferGeometry(),
       new THREE.MeshBasicMaterial({
         map: factory.tex,
-        transparent: true,
-        depthTest: true,
+        // transparent: true,
+        // depthWrite: false,
+        // depthFunc: THREE.AlwaysDepth,
       })
     );
     factory.regist(text + Math.random(), this);
@@ -89,7 +90,6 @@ export default class TextBoard extends THREE.Mesh {
   }
 
   update() {
-    console.log("!")
     let spritePos = [
       -0.5 * this.width,
       0,
