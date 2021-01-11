@@ -5,6 +5,7 @@ export default class TextFrag extends THREE.Sprite {
   _text: string;
   _size: number;
   _color: string | number;
+  _bgColor: string | number;
   uvs: number[];
   width: number;
   height: number;
@@ -68,7 +69,14 @@ export default class TextFrag extends THREE.Sprite {
   get color() {
     return this._color;
   }
+  set bgColor(color) {
+    this._bgColor = color;
+    this.factory.redraw();
+  }
 
+  get bgColor() {
+    return this._bgColor;
+  }
   set size(size) {
     this._size = size;
     this.height = size;

@@ -4,6 +4,7 @@ import flowIF from "./flowIF";
 import flowNode from "./Node";
 import flowLinePoint from "./LinePoint";
 
+const XFIRST = false;
 let RADIUS = 5;
 function caculatePoints(start: flowNode, end: flowNode) {
   let startPoint = start.position.clone(),
@@ -11,8 +12,16 @@ function caculatePoints(start: flowNode, end: flowNode) {
   let midPoint = startPoint.clone().add(endPoint).multiplyScalar(0.5);
   return [
     startPoint,
-    new THREE.Vector3(startPoint.x, startPoint.y, midPoint.z),
-    new THREE.Vector3(endPoint.x, endPoint.y, midPoint.z),
+    new THREE.Vector3(
+      XFIRST ? startPoint.x : midPoint.x,
+      startPoint.y,
+      XFIRST ? midPoint.z : startPoint.z
+    ),
+    new THREE.Vector3(
+      XFIRST ? endPoint.x : midPoint.x,
+      endPoint.y,
+      XFIRST ? midPoint.z : endPoint.z
+    ),
     endPoint,
   ];
 }

@@ -31,15 +31,26 @@ interface MainState {
   poping: [flowIF, number[]];
   pickedNode: flowIF & THREE.Object3D;
 }
-
-let textFactory = new FragFactory();
-
+const MIN_CAM_SCALE = 0.5;
+const MAX_CAM_SCALE = 2;
+const POINT_OUTLINE_COLOR = "#214362";
+const CLEAR_COLOR = "#fff";
+const GRID_COLOR = "#999";
+const LINE_COLOR = "#444";
+const TEXT_COLOR = "#fff";
+const TEXT_BACKGROUND = "#4286c4";
+const NODE_COLOR = "#f6f6ef";
+const BORDER_COLOR = "#888";
 const POINT_BLOOM_LAYER = 1;
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(POINT_BLOOM_LAYER);
 
 const canvasWH = [1280, 720];
-const defaultCameraHeight = 1200;
+const defaultIntensity = 0.87;
+const defaultScale = 0.75;
+const defaultCameraHeight = 2000;
+
+let textFactory = new FragFactory(undefined, TEXT_COLOR, TEXT_BACKGROUND);
 
 export default class MainPlane extends React.Component<MainIf, MainState> {
   canvas: HTMLCanvasElement;
@@ -95,6 +106,20 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       TOP,
     }
     let cameraState: CAMERA_STATE = 0 as CAMERA_STATE;
+    let cameraScale = defaultScale;
+    camera.scale.set(cameraScale, cameraScale, cameraScale);
+    window.addEventListener("wheel", (event) => {
+      if (event.shiftKey) {
+        if (event.deltaY > 0) {
+          cameraScale += 0.05;
+        } else {
+          cameraScale -= 0.05;
+        }
+        cameraScale = Math.max(cameraScale, MIN_CAM_SCALE);
+        cameraScale = Math.min(cameraScale, MAX_CAM_SCALE);
+      }
+      camera.scale.set(cameraScale, cameraScale, cameraScale);
+    });
 
     let resizeCountDown: number;
     this.onResize = () => {
@@ -113,17 +138,17 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.onResize();
     window.addEventListener("resize", this.onResize);
 
-    let light = new THREE.DirectionalLight("#fff", 0.5);
+    let light = new THREE.DirectionalLight("#fff", 1 - defaultIntensity);
     light.position.set(-100, 200, -100);
     light.lookAt(0, 0, 0);
     scene.add(light);
-    let ambientLight = new THREE.AmbientLight("#fff", 0.5);
+    let ambientLight = new THREE.AmbientLight("#fff", defaultIntensity);
     scene.add(ambientLight);
 
     var renderer = new THREE.WebGLRenderer({ canvas: this.canvas });
     renderer.setSize(canvasWH[0], canvasWH[1]);
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setClearColor("#04152C");
+    renderer.setClearColor(CLEAR_COLOR);
     renderer.sortObjects = true;
 
     this.onDispose = () => {
@@ -132,6 +157,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
 
     let gridHelper = new THREE.GridHelper(2000, 50);
     gridHelper.position.y = -1;
+    (gridHelper.material as THREE.LineBasicMaterial).color.set(GRID_COLOR);
     scene.add(gridHelper);
     let ground = new THREE.Mesh(
       new THREE.PlaneGeometry(canvasWH[0], canvasWH[1]),
@@ -139,7 +165,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         color: "white",
         transparent: true,
         depthWrite: false,
-        opacity: 0.1,
+        opacity: 0.01,
       })
     );
     ground.rotateX(-Math.PI / 2);
@@ -162,6 +188,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       scene,
       camera
     );
+    outlinePass.visibleEdgeColor = new THREE.Color(POINT_OUTLINE_COLOR);
     finalComposer.addPass(outlinePass);
     let landOutLine = new OutlinePass(
       new THREE.Vector2(canvasWH[0], canvasWH[1]),
@@ -249,23 +276,13 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               scene,
               textFactory,
               `NODE${objArray.length}`,
-              "#ffd",
-              // Math.floor(Math.random() * 0xffffff)
-              //   .toString(16)
-              //   .padStart(6, "0"),
-              // ["DODECAHE", "CYLINDER", "BOX"][Math.floor(Math.random() * 3)]
-              "BOX"
+              NODE_COLOR,
+              BORDER_COLOR
             )
           );
           break;
         case "PLANE":
-          let land = new Land(
-            scene,
-            Math.floor(Math.random() * 0xffffff)
-              .toString(16)
-              .padStart(6, "0"),
-            lands
-          );
+          let land = new Land(scene, "#888", lands);
           objArray.push(land);
           break;
         case "TEXT":
@@ -350,7 +367,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           if (lineNode[0]) {
             lineNode[1] = result;
             objArray.push(
-              new flowLine(scene, lineNode[0], lineNode[1], "#ffe")
+              new flowLine(scene, lineNode[0], lineNode[1], LINE_COLOR)
             );
             lineNode = [];
           } else {
@@ -400,7 +417,13 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             objArray.push(land);
             break;
           case "Node":
-            let node = new flowNode(scene, textFactory, "node", "#fff");
+            let node = new flowNode(
+              scene,
+              textFactory,
+              "node",
+              NODE_COLOR,
+              BORDER_COLOR
+            );
             nodes[obj.uuid] = node;
             node.fromADGEJSON(obj);
             objArray.push(node);
@@ -422,7 +445,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         let start = nodes[lineObj.startID],
           end = nodes[lineObj.endID];
         if (start && end) {
-          let line = new flowLine(scene, start, end, "#fff");
+          let line = new flowLine(scene, start, end, LINE_COLOR);
           line.fromADGEJSON(lineObj);
           objArray.push(line);
         }

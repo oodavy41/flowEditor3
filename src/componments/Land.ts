@@ -69,6 +69,11 @@ export default class Land extends THREE.Mesh implements flowIF {
           (this.material as THREE.MeshBasicMaterial).needsUpdate = true;
         },
       ],
+      number_icon_rotateZ: [
+        "旋转",
+        (value) => (this.rotation.z = +value),
+        () => this.rotation.z,
+      ],
       number: [
         "层级",
         (value) => {

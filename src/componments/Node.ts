@@ -33,7 +33,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     textFactory: FragFactory,
     name: string,
     color: string | number,
-    type: string = "BOX"
+    lineColor?: string | number
   ) {
     super(
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
@@ -43,6 +43,9 @@ export default class flowNode extends THREE.Mesh implements flowIF {
         opacity: 0,
       })
     );
+    this._color = color;
+    this._lineColor = lineColor || "#888";
+    this._name = name;
     this.position.y = 5;
     let geo = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
     this.mainMesh = new THREE.Mesh(
@@ -54,7 +57,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     const edges = new THREE.EdgesGeometry(this.mainMesh.geometry);
     const line = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: "#3ff", linewidth: 1 })
+      new THREE.LineBasicMaterial({ color: this.lineColor, linewidth: 1 })
     );
     this.line = line;
     line.scale.set(1.01, 1.01, 1.01);
@@ -76,19 +79,15 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     this.add(this.iconPlane);
     this.iconPlane.visible = false;
 
-    this._color = color;
-    this._lineColor = "#30f0f0";
-    this._name = name;
-
     this.nameText = new TextBoard(
       scene,
       name,
       (SIZE * 2) / 4,
-      "#fff",
+      "#4286c4",
       textFactory
     );
-    this.nameText.position.z = SIZE * 1.2;
-    this.nameText.position.y = 10;
+    this.nameText.rotation.z = -Math.PI / 2;
+    this.nameText.position.x = -SIZE * 1.2;
     this.add(this.nameText);
     scene.add(this);
 
@@ -194,6 +193,11 @@ export default class flowNode extends THREE.Mesh implements flowIF {
         (value) => (this.iconPlane.scale.y = +value),
         () => this.iconPlane.scale.y,
       ],
+      number_icon_rotateZ: [
+        "图标旋转",
+        (value) => (this.iconPlane.rotation.z = +value),
+        () => this.iconPlane.rotation.z,
+      ],
       number_iconHeight: [
         "图片高度",
         (value) => {
@@ -204,9 +208,9 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       number_text: [
         "文字偏移",
         (value) => {
-          this.nameText.position.z = +value;
+          this.nameText.position.x = -value;
         },
-        () => this.nameText.position.z,
+        () => -this.nameText.position.x,
       ],
       number_scaleX: [
         "x缩放",
@@ -249,7 +253,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       (this.iconPlane.material as THREE.Material).dispose();
       this.geometry.dispose();
       (this.material as THREE.Material).dispose();
-      this.starts.forEach((line) => line.onDispose(scene,objArray));
+      this.starts.forEach((line) => line.onDispose(scene, objArray));
       this.ends.forEach((line) => line.onDispose(scene, objArray));
     }
   }
