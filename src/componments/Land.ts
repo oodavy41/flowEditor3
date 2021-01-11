@@ -106,6 +106,16 @@ export default class Land extends THREE.Mesh implements flowIF {
     };
   }
 
+  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
+    scene.remove(this);
+    let index = objArray.indexOf(this);
+    if (index >= 0) {
+      objArray.splice(index, 1);
+      this.geometry.dispose();
+      (this.material as THREE.MeshBasicMaterial).dispose();
+    }
+  }
+
   set isBlooming(value: boolean) {
     this._isBlooming = value;
     if (value) {

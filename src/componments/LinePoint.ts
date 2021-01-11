@@ -54,6 +54,12 @@ export default class linePoint extends THREE.Mesh implements flowIF {
     };
   }
 
+  onDispose(parent: THREE.Scene|THREE.Object3D) {
+    parent.remove(this);
+    this.geometry.dispose();
+    (this.material as THREE.Material).dispose();
+  }
+
   toADGEJSON() {}
   fromADGEJSON(json: any) {}
 }

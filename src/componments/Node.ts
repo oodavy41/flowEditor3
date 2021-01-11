@@ -236,6 +236,23 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       }
     };
   }
+  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
+    scene.remove(this);
+    let index = objArray.indexOf(this);
+    if (index >= 0) {
+      objArray.splice(index, 1);
+      this.remove(this.mainMesh);
+      this.mainMesh.geometry.dispose();
+      (this.mainMesh.material as THREE.Material).dispose();
+      this.remove(this.iconPlane);
+      this.iconPlane.geometry.dispose();
+      (this.iconPlane.material as THREE.Material).dispose();
+      this.geometry.dispose();
+      (this.material as THREE.Material).dispose();
+      this.starts.forEach((line) => line.onDispose(scene,objArray));
+      this.ends.forEach((line) => line.onDispose(scene, objArray));
+    }
+  }
   set color(value) {
     if (this.mainMesh.material) {
       (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(value);

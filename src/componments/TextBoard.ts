@@ -94,6 +94,16 @@ export default class TextNode extends TextBoard implements flowIF {
       this.position.set(point.x, this.position.y, point.z);
     };
   }
+
+  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
+    scene.remove(this);
+    let index = objArray.indexOf(this);
+    if (index >= 0) {
+      objArray.splice(index, 1);
+      this.geometry.dispose();
+      this.material.dispose();
+    }
+  }
   toADGEJSON() {
     let ret: any = {};
     ret.type = "TextBoard";

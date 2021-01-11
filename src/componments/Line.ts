@@ -5,7 +5,17 @@ import flowNode from "./Node";
 import flowLinePoint from "./LinePoint";
 
 let RADIUS = 5;
-
+function caculatePoints(start: flowNode, end: flowNode) {
+  let startPoint = start.position.clone(),
+    endPoint = end.position.clone();
+  let midPoint = startPoint.clone().add(endPoint).multiplyScalar(0.5);
+  return [
+    startPoint,
+    new THREE.Vector3(startPoint.x, startPoint.y, midPoint.z),
+    new THREE.Vector3(endPoint.x, endPoint.y, midPoint.z),
+    endPoint,
+  ];
+}
 export default class flowLine extends THREE.Mesh implements flowIF {
   _color: string | number;
   start: flowNode;
@@ -38,17 +48,6 @@ export default class flowLine extends THREE.Mesh implements flowIF {
     end: flowNode,
     color: string | number
   ) {
-    function caculatePoints(start: flowNode, end: flowNode) {
-      let startPoint = start.position.clone(),
-        endPoint = end.position.clone();
-      let midPoint = startPoint.clone().add(endPoint).multiplyScalar(0.5);
-      return [
-        startPoint,
-        new THREE.Vector3(midPoint.x, startPoint.y, startPoint.z),
-        new THREE.Vector3(midPoint.x, endPoint.y, endPoint.z),
-        endPoint,
-      ];
-    }
     let init = caculatePoints(start, end);
     let curve = new THREE.CatmullRomCurve3(init, false, "catmullrom", 0.01);
     super(
@@ -222,6 +221,29 @@ export default class flowLine extends THREE.Mesh implements flowIF {
     this.updatePointKey();
   }
 
+  reGenrate() {
+    let init = caculatePoints(this.start, this.end);
+    this.remove(...this.pointArray);
+    this.pointArray = init.map((v) => new flowLinePoint(this, v));
+    this.drawLine();
+    this.dashManager.restore(this.curve);
+  }
+
+  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
+    scene.remove(this);
+    let index = objArray.indexOf(this);
+    if (index >= 0) {
+      objArray.splice(index, 1);
+      this.start.starts.splice(this.start.starts.indexOf(this), 1);
+      this.end.starts.splice(this.end.starts.indexOf(this), 1);
+      this.pointArray.forEach((p) => p.onDispose(this));
+      this.remove(...this.pointArray);
+      this.dashManager.dispose();
+      this.geometry.dispose();
+      (this.material as THREE.Material).dispose();
+    }
+  }
+
   tick(delta: number) {
     this.dashManager.tick(delta);
   }
@@ -315,6 +337,13 @@ function dashGenerator(
       }
       parent.add(...dashes.map((d) => d.node));
     },
+    dispose: () => {
+      dashes.forEach((d) => {
+        parent.remove(d.node);
+        d.node.geometry.dispose();
+        (d.node.material as THREE.Material).dispose();
+      });
+    },
   };
 }
 type dashManagerType = {
@@ -327,6 +356,7 @@ type dashManagerType = {
   changeColor: (color: string | number) => void;
   changeProperty: (newDashLength: number) => void;
   restore: (newCurve: THREE.CatmullRomCurve3) => void;
+  dispose: () => void;
 };
 function dashNode(
   length: number,
