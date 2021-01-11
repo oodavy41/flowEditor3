@@ -44,6 +44,7 @@ const defaultCameraHeight = 1200;
 export default class MainPlane extends React.Component<MainIf, MainState> {
   canvas: HTMLCanvasElement;
   bodyDom: HTMLDivElement;
+  scene: THREE.Scene;
   objArray: Array<flowIF & THREE.Object3D>;
   addNode: (flag: string) => void;
   changeCamera: () => void;
@@ -59,7 +60,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     super(props);
     this.canvas = undefined;
     this.bodyDom = undefined;
-    this.state = { displayMode: false, pickedNode: null, poping: [null, []] };
+    this.state = {
+      displayMode: false,
+      pickedNode: null,
+      poping: [null, []],
+    };
   }
   componentDidMount() {
     const { dataProvider, compModel } = this.props;
@@ -71,8 +76,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       canvasRect.left,
       canvasRect.top,
     ];
-    var scene = new THREE.Scene();
-    var camera = new THREE.OrthographicCamera(
+    let scene = new THREE.Scene();
+    this.scene = scene;
+    let camera = new THREE.OrthographicCamera(
       -canvasWH[0] / 2,
       canvasWH[0] / 2,
       canvasWH[1] / 2,
@@ -83,6 +89,12 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     camera.position.set(-1500, defaultCameraHeight, 1500);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
+    enum CAMERA_STATE {
+      LEFT,
+      RIGHT,
+      TOP,
+    }
+    let cameraState: CAMERA_STATE = 0 as CAMERA_STATE;
 
     let resizeCountDown: number;
     this.onResize = () => {
@@ -210,10 +222,22 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     var raycaster = new THREE.Raycaster();
     var mouse = new THREE.Vector2();
     this.changeCamera = () => {
-      if (camera.position.x !== 0) {
-        camera.position.set(0, 2500, 0);
-      } else {
-        camera.position.set(-1500, defaultCameraHeight, 1500);
+      cameraState = (cameraState + 1) % 3;
+      switch (cameraState) {
+        case CAMERA_STATE.LEFT:
+          camera.position.x = -1500;
+          camera.position.z = 1500;
+          break;
+        case CAMERA_STATE.RIGHT:
+          camera.position.x = 1500;
+          camera.position.z = 1500;
+          break;
+        case CAMERA_STATE.TOP:
+          camera.position.x = 0;
+          camera.position.z = 0;
+          break;
+        default:
+          break;
       }
       camera.lookAt(0, 0, 0);
     };
@@ -458,14 +482,24 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       });
     });
 
+    let xscale = 1.7,
+      yscale = 0.9;
     dagre.layout(g);
     g.nodes().forEach((v) => {
       let info = g.node(v);
       console.log(info.label, " x:" + info.x, " y:" + info.y);
+      let obj = objs.find((o) => o.uuid === v);
+      obj.position.x = info.x * xscale - canvasWH[0] / 2;
+      obj.position.z = 30 + info.y * yscale - canvasWH[1] / 2;
     });
     g.edges().forEach((e) => {
       let info = g.edge(e);
       console.log(`${e.v} -> ${e.w} :`, info.points);
+    });
+    objs.forEach((e) => {
+      if (e instanceof flowLine) {
+        e.reGenrate();
+      }
     });
   }
 
@@ -520,6 +554,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           <Popup node={poping[0]} position={poping[1]}></Popup>
         </div>
         <MetaPanel
+          scene={this.scene}
+          objArray={this.objArray}
           compModel={displayMode}
           canvasUpdater={this.updateCanvas}
           pickedUpdater={this.state.pickedNode}
@@ -528,9 +564,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           style={{
             position: "absolute",
             bottom: 0,
-            paddingRight: 10,
-            color: "#fff",
-            backgroundColor: "rgba(0,0,0,.4)",
+            padding: "2px 10px 2px 0",
+            color: "#000",
+            backgroundColor: "rgba(255,255,255,0.4)",
           }}
         >
           <input

@@ -2,13 +2,15 @@ import React from "react";
 import flowIF from "./flowIF";
 
 interface metaPanelIF {
+  scene: THREE.Scene;
+  objArray: (flowIF & THREE.Object3D)[];
   compModel: boolean;
   canvasUpdater: (key: string, value: any) => void;
   pickedUpdater: flowIF & THREE.Object3D;
 }
 
 export default function MetaPanel(props: metaPanelIF) {
-  let { compModel, canvasUpdater, pickedUpdater } = props;
+  let { scene, objArray, compModel, canvasUpdater, pickedUpdater } = props;
   let nodeFun: {
     [key: string]: (
       updateObj: flowIF & THREE.Object3D,
@@ -118,6 +120,13 @@ export default function MetaPanel(props: metaPanelIF) {
         }
       });
     }
+    pickedDom.push(
+      <div>
+        <button onClick={() => pickedUpdater.onDispose(scene, objArray)}>
+          删除
+        </button>
+      </div>
+    );
     console.log(pickedDom);
   }
   if (compModel) return <></>;
@@ -128,8 +137,9 @@ export default function MetaPanel(props: metaPanelIF) {
           position: "absolute",
           top: 0,
           right: 0,
-          color: "#fff",
-          backgroundColor: "rgba(0,0,0,0.2)",
+          padding: 5,
+          color: "#000",
+          backgroundColor: "rgba(255,255,255,0.4)",
         }}
       >
         <div>

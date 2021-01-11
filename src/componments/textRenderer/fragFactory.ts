@@ -22,7 +22,7 @@ export default class FragFactory {
     this.defaultColor = color || "#5f5f5f";
 
     this.tex = new THREE.CanvasTexture(this.canvas);
-    this.tex.minFilter = THREE.LinearFilter;
+    this.tex.minFilter = THREE.NearestFilter;
     this.frags = {};
   }
 
@@ -51,28 +51,29 @@ export default class FragFactory {
       typeof frag.color === "string"
         ? frag.color
         : "#" + frag.color.toString(16);
-    this.ctx.font = frag.size + "px Fira Sans";
+    let textSize = frag.size * 2;
+    this.ctx.font = textSize + "px Fira Sans";
     let text = " " + frag.text + " ";
     let textWidth = this.ctx.measureText(text);
-    this.lineHeight = Math.max(this.lineHeight, frag.size);
+    this.lineHeight = Math.max(this.lineHeight, textSize);
     if (this.xoffset + textWidth.width > this.canvas.width) {
-      this.yoffset += this.lineHeight + 3;
+      this.yoffset += this.lineHeight + 8;
       this.xoffset = 0;
     }
     this.ctx.fillText(text, this.xoffset, this.yoffset);
     frag.uvs = [
       this.xoffset / this.canvas.width,
-      1 - (this.yoffset + frag.size + 2) / this.canvas.height,
+      1 - (this.yoffset + textSize + 3) / this.canvas.height,
       (this.xoffset + textWidth.width) / this.canvas.width,
-      1 - (this.yoffset + frag.size + 2) / this.canvas.height,
+      1 - (this.yoffset + textSize + 3) / this.canvas.height,
       (this.xoffset + textWidth.width) / this.canvas.width,
-      1 - (this.yoffset -3) / this.canvas.height,
+      1 - (this.yoffset - 3) / this.canvas.height,
       this.xoffset / this.canvas.width,
-      1 - (this.yoffset -3) / this.canvas.height,
+      1 - (this.yoffset - 3) / this.canvas.height,
     ];
-    console.log(frag.uvs, frag.size, this.yoffset);
-    this.xoffset += textWidth.width + 3;
-    frag.height = frag.size;
+    console.log(frag.uvs, textSize, this.yoffset);
+    this.xoffset += textWidth.width + 5;
+    frag.height = textSize;
     frag.width = textWidth.width;
     for (let i in this.frags) {
       this.frags[i].update();

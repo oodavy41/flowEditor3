@@ -37,17 +37,17 @@ export default class TextBoard extends THREE.Mesh {
     this.height = size;
     this.factory.draw(this);
     let spritePos = [
-      -0.5 * this.width,
+      -0.25 * this.width,
       0,
       0,
-      0.5 * this.width,
+      0.25 * this.width,
       0,
       0,
-      0.5 * this.width,
-      this.height,
+      0.25 * this.width,
+      0.5 * this.height,
       0,
-      -0.5 * this.width,
-      this.height,
+      -0.25 * this.width,
+      0.5 * this.height,
       0,
     ];
     this.geometry.setIndex([0, 1, 2, 0, 2, 3]);
@@ -86,22 +86,24 @@ export default class TextBoard extends THREE.Mesh {
   }
   set text(text) {
     this._text = text;
+    if (!text) this.visible = false;
+    else this.visible = true;
     this.factory.redraw();
   }
 
   update() {
     let spritePos = [
-      -0.5 * this.width,
+      -0.25 * this.width,
       0,
       0,
-      0.5 * this.width,
+      0.25 * this.width,
       0,
       0,
-      0.5 * this.width,
-      this.height,
+      0.25 * this.width,
+      0.5 * this.height,
       0,
-      -0.5 * this.width,
-      this.height,
+      -0.25 * this.width,
+      0.5 * this.height,
       0,
     ];
     this.geometry.setAttribute(

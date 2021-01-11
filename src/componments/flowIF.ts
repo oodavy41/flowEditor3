@@ -16,6 +16,8 @@ export default interface flowIF {
     raycaster?: THREE.Raycaster
   ) => void;
 
+  onDispose: (scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) => void;
+
   fromADGEJSON: (json: any) => void;
   toADGEJSON: (cache?: any) => any;
 }
