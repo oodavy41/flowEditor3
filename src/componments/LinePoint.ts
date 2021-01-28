@@ -25,7 +25,7 @@ export default class linePoint extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: "red",
         transparent: true,
-        depthWrite: false,
+         depthWrite:false,
         opacity: 0.7,
       })
     );

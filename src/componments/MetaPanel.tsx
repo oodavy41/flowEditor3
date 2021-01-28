@@ -34,11 +34,11 @@ export default function MetaPanel(props: metaPanelIF) {
       <div key={Math.random()}>
         {updateLabel}
         <select
-          value={defaultValue}
+          defaultValue={defaultValue}
           onChange={(event) => updateFun(event.target.value)}
         >
-          {keyObj[3].map((value: string) => (
-            <option value={value}>{value}</option>
+          {keyObj[3].map((info: { key: string; value: number }) => (
+            <option value={info.value}>{info.key}</option>
           ))}
         </select>
       </div>

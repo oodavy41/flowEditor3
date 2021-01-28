@@ -39,7 +39,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
       new THREE.MeshBasicMaterial({
         transparent: true,
-        depthWrite: false,
+         depthWrite:false,
         opacity: 0,
       })
     );
@@ -70,7 +70,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: "#fff",
         transparent: true,
-        depthWrite: false,
+         depthWrite:false,
         opacity: 0.8,
       })
     );
@@ -127,26 +127,19 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       list_type: [
         "形状",
         (value) => {
-          switch (value) {
-            case "CYLINDER":
-              this.mainMesh.geometry = new THREE.CylinderGeometry(
-                SIZE / 3,
-                SIZE / 2,
-                SIZE
-              );
-              break;
-            case "DODECAHE":
-              this.mainMesh.geometry = new THREE.DodecahedronGeometry(SIZE / 2);
-              break;
-            case "BOX":
-            default:
-              this.mainMesh.geometry = new THREE.BoxGeometry(SIZE, SIZE, SIZE);
-              break;
-          }
-          line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+          console.log(value as geometryType);
+          let geo = geoGen(value as geometryType, SIZE);
+          this.mainMesh.geometry = geo;
+          this.line.geometry = new THREE.EdgesGeometry(geo);
         },
         () => "BOX",
-        ["CYLINDER", "DODECAHE", "BOX"],
+        [
+          { key: "BOX", value: geometryType.BOX },
+          { key: "CYLINDER", value: geometryType.CYLINDER },
+          { key: "DODECAHE", value: geometryType.DODECAHE },
+          { key: "SPHERE", value: geometryType.SPHERE },
+          { key: "CONE", value: geometryType.CONE },
+        ],
       ],
       color_line: [
         "描边颜色",
@@ -323,4 +316,33 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
   }
+}
+
+enum geometryType {
+  BOX = "BOX",
+  CYLINDER = "CYLINDER",
+  DODECAHE = "DODECAHE",
+  SPHERE = "SPHERE",
+  CONE = "CONE",
+}
+
+function geoGen(type: geometryType, SIZE: number) {
+  const typeFun = {
+    CYLINDER: () => {
+      return new THREE.CylinderGeometry(SIZE / 2, SIZE / 2, SIZE);
+    },
+    DODECAHE: () => {
+      return new THREE.DodecahedronGeometry(SIZE / 2);
+    },
+    BOX: () => {
+      return new THREE.BoxGeometry(SIZE, SIZE, SIZE);
+    },
+    SPHERE: () => {
+      return new THREE.SphereGeometry(SIZE);
+    },
+    CONE: () => {
+      return new THREE.ConeGeometry(SIZE * 0.6, SIZE, 4);
+    },
+  };
+  return typeFun[type]();
 }

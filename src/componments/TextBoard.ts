@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import Events from "events";
+
+import { CAMERA_STATE, EventEmitter } from "../GLOBAL";
 
 import flowIF from "./flowIF";
 import FragFactory from "./textRenderer/fragFactory";
@@ -12,7 +15,7 @@ export default class TextNode extends TextBoard implements flowIF {
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
+  onUpdateData: { [key: string]: [string, (value: any) => void, any?, any[]?] };
   onMouseMove: (point: THREE.Vector3) => void;
 
   constructor(
@@ -37,6 +40,23 @@ export default class TextNode extends TextBoard implements flowIF {
     this.offClick = () => {
       this.isPicked = false;
     };
+
+    let changeCameraLauncher = (data: CAMERA_STATE) => {
+      switch (data) {
+        case CAMERA_STATE.LEFT:
+          this.rotation.z = Math.PI;
+          break;
+        case CAMERA_STATE.RIGHT:
+          this.rotation.z = 0;
+          break;
+        case CAMERA_STATE.TOP:
+          this.rotation.z = -Math.PI / 2;
+          break;
+        default:
+          break;
+      }
+    };
+
     this.switchLayer = (layer, flag) => {
       this.isHoving = flag;
       if (flag) {
@@ -73,20 +93,46 @@ export default class TextNode extends TextBoard implements flowIF {
         },
         () => this.size,
       ],
-      number_rotateX: [
+      list_rotateX: [
         "X旋转",
         (value) => (this.rotation.x = value),
         () => this.rotation.x,
+        [
+          { key: "0°", value: 0 },
+          { key: "90°", value: 0.5 * Math.PI },
+          { key: "180°", value: Math.PI },
+          { key: "270°", value: Math.PI * 1.5 },
+        ],
       ],
-      number_rotateY: [
+      list_rotateY: [
         "Y旋转",
         (value) => (this.rotation.y = value),
         () => this.rotation.y,
+        [
+          { key: "0°", value: 0 },
+          { key: "90°", value: 0.5 * Math.PI },
+          { key: "180°", value: Math.PI },
+          { key: "270°", value: Math.PI * 1.5 },
+        ],
       ],
-      number_rotateZ: [
+      list_rotateZ: [
         "Z旋转",
-        (value) => (this.rotation.z = value),
+        (value) => {
+          if (value !== "FOLLOW") {
+            this.rotation.z = value;
+            EventEmitter.removeListener("changeCamera", changeCameraLauncher);
+          } else {
+            EventEmitter.on("changeCamera", changeCameraLauncher);
+          }
+        },
         () => this.rotation.z,
+        [
+          { key: "0°", value: 0 },
+          { key: "90°", value: 0.5 * Math.PI },
+          { key: "180°", value: Math.PI },
+          { key: "270°", value: Math.PI * 1.5 },
+          { key: "跟随视角", value: "FOLLOW" },
+        ],
       ],
     };
 

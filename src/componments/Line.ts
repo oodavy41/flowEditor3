@@ -64,7 +64,7 @@ export default class flowLine extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        depthWrite: false,
+         depthWrite:false,
         opacity: 0,
       })
     );

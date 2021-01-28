@@ -19,7 +19,8 @@ export default class TextFrag extends THREE.Sprite {
       new THREE.SpriteMaterial({
         map: factory.tex,
         transparent: true,
-        depthWrite: false,
+        side: THREE.DoubleSide,
+         depthWrite:false,
       })
     );
     factory.regist(text + Math.random(), this);

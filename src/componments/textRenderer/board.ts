@@ -24,7 +24,8 @@ export default class TextBoard extends THREE.Mesh {
       new THREE.MeshBasicMaterial({
         map: factory.tex,
         transparent: true,
-        // depthWrite: false,
+        side:THREE.DoubleSide,
+         depthWrite:false,
         // depthFunc: THREE.AlwaysDepth,
       })
     );

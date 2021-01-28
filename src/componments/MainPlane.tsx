@@ -2,6 +2,7 @@ import React from "react";
 import * as THREE from "three";
 import { Object3D } from "three";
 import dagre from "dagre";
+import Events from "events";
 
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -11,6 +12,8 @@ import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 
 import styles from "./MainPlane.less";
+
+import { CAMERA_STATE, EventEmitter } from "../GLOBAL";
 
 import FragFactory from "./textRenderer/fragFactory";
 import flowIF from "./flowIF";
@@ -31,8 +34,8 @@ interface MainState {
   poping: [flowIF, number[]];
   pickedNode: flowIF & THREE.Object3D;
 }
-const MIN_CAM_SCALE = 0.5;
-const MAX_CAM_SCALE = 2;
+const MIN_CAM_SCALE = 0.2;
+const MAX_CAM_SCALE = 1;
 const POINT_OUTLINE_COLOR = "#214362";
 const CLEAR_COLOR = "#fff";
 const GRID_COLOR = "#999";
@@ -45,9 +48,9 @@ const POINT_BLOOM_LAYER = 1;
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(POINT_BLOOM_LAYER);
 
-const canvasWH = [1280, 720];
+const canvasWH = [1920, 1080];
 const defaultIntensity = 0.87;
-const defaultScale = 0.75;
+const defaultScale = 0.7;
 const defaultCameraHeight = 2000;
 
 let textFactory = new FragFactory(undefined, TEXT_COLOR, TEXT_BACKGROUND);
@@ -55,6 +58,7 @@ let textFactory = new FragFactory(undefined, TEXT_COLOR, TEXT_BACKGROUND);
 export default class MainPlane extends React.Component<MainIf, MainState> {
   canvas: HTMLCanvasElement;
   bodyDom: HTMLDivElement;
+  eventEmitter: Events.EventEmitter;
   scene: THREE.Scene;
   objArray: Array<flowIF & THREE.Object3D>;
   addNode: (flag: string) => void;
@@ -71,6 +75,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     super(props);
     this.canvas = undefined;
     this.bodyDom = undefined;
+    this.eventEmitter = EventEmitter;
     this.state = {
       displayMode: false,
       pickedNode: null,
@@ -100,12 +105,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     camera.position.set(-1500, defaultCameraHeight, 1500);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
-    enum CAMERA_STATE {
-      LEFT,
-      RIGHT,
-      TOP,
-    }
-    let cameraState: CAMERA_STATE = 0 as CAMERA_STATE;
+
+    let cameraState: CAMERA_STATE = 1 as CAMERA_STATE;
     let cameraScale = defaultScale;
     camera.scale.set(cameraScale, cameraScale, cameraScale);
     window.addEventListener("wheel", (event) => {
@@ -162,7 +163,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     let ground = new THREE.Mesh(
       new THREE.PlaneGeometry(canvasWH[0], canvasWH[1]),
       new THREE.MeshBasicMaterial({
-        color: "white",
+        color: "black",
         transparent: true,
         depthWrite: false,
         opacity: 0.01,
@@ -251,22 +252,26 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.changeCamera = () => {
       cameraState = (cameraState + 1) % 3;
       switch (cameraState) {
-        case CAMERA_STATE.LEFT:
+        case CAMERA_STATE.RIGHT:
           camera.position.x = -1500;
           camera.position.z = 1500;
+          camera.lookAt(0, 0, 0);
           break;
-        case CAMERA_STATE.RIGHT:
-          camera.position.x = 1500;
-          camera.position.z = 1500;
+        case CAMERA_STATE.LEFT:
+          camera.position.x = -1500;
+          camera.position.z = -1500;
+          camera.lookAt(0, 0, 0);
           break;
         case CAMERA_STATE.TOP:
           camera.position.x = 0;
           camera.position.z = 0;
+          camera.lookAt(0, 0, 0);
+          camera.rotation.z = -Math.PI / 2;
           break;
         default:
           break;
       }
-      camera.lookAt(0, 0, 0);
+      this.eventEmitter.emit("changeCamera", cameraState);
     };
     this.addNode = (flag: string) => {
       switch (flag) {
