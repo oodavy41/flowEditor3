@@ -96,6 +96,16 @@ export default function MetaPanel(props: metaPanelIF) {
         ></input>
       </div>
     ),
+    text: (updateObj, updateFun, updateLabel, defaultVaule) => (
+      <div key={Math.random()}>
+        {updateLabel || "属性"}:
+        <input
+          type="text"
+          defaultValue={defaultVaule}
+          onChange={(event) => updateFun(event.target.value)}
+        ></input>
+      </div>
+    ),
   };
   let pickedDom: JSX.Element[] = [];
   if (pickedUpdater) {

@@ -11,6 +11,7 @@ export default class TextNode extends TextBoard implements flowIF {
   name: string;
   isPicked: boolean;
   isHoving: boolean;
+  _rotateWithCamera: boolean;
   updateText: () => void;
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
@@ -34,27 +35,12 @@ export default class TextNode extends TextBoard implements flowIF {
 
     this.isPicked = false;
     this.isHoving = false;
+    this._rotateWithCamera = false;
     this.onClick = () => {
       this.isPicked = true;
     };
     this.offClick = () => {
       this.isPicked = false;
-    };
-
-    let changeCameraLauncher = (data: CAMERA_STATE) => {
-      switch (data) {
-        case CAMERA_STATE.LEFT:
-          this.rotation.z = Math.PI;
-          break;
-        case CAMERA_STATE.RIGHT:
-          this.rotation.z = 0;
-          break;
-        case CAMERA_STATE.TOP:
-          this.rotation.z = -Math.PI / 2;
-          break;
-        default:
-          break;
-      }
     };
 
     this.switchLayer = (layer, flag) => {
@@ -120,9 +106,9 @@ export default class TextNode extends TextBoard implements flowIF {
         (value) => {
           if (value !== "FOLLOW") {
             this.rotation.z = value;
-            EventEmitter.removeListener("changeCamera", changeCameraLauncher);
+            this.rotateWithCamera = false;
           } else {
-            EventEmitter.on("changeCamera", changeCameraLauncher);
+            this.rotateWithCamera = true;
           }
         },
         () => this.rotation.z,
@@ -140,6 +126,33 @@ export default class TextNode extends TextBoard implements flowIF {
       this.position.set(point.x, this.position.y, point.z);
     };
   }
+  get rotateWithCamera() {
+    return this._rotateWithCamera;
+  }
+  set rotateWithCamera(value) {
+    this._rotateWithCamera = value;
+    if (value) {
+      EventEmitter.on("changeCamera", this.changeCameraLauncher);
+    } else {
+      EventEmitter.removeListener("changeCamera", this.changeCameraLauncher);
+    }
+  }
+
+  changeCameraLauncher = (data: CAMERA_STATE) => {
+    switch (data) {
+      case CAMERA_STATE.LEFT:
+        this.rotation.z = Math.PI;
+        break;
+      case CAMERA_STATE.RIGHT:
+        this.rotation.z = 0;
+        break;
+      case CAMERA_STATE.TOP:
+        this.rotation.z = -Math.PI / 2;
+        break;
+      default:
+        break;
+    }
+  };
 
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);
@@ -156,6 +169,7 @@ export default class TextNode extends TextBoard implements flowIF {
     ret.color = this.color;
     ret.size = this.size;
     ret.text = this.text;
+    ret.rotateWithCamera = this.rotateWithCamera;
     ret.matrix = [
       this.position.toArray(),
       this.scale.toArray(),
@@ -167,6 +181,7 @@ export default class TextNode extends TextBoard implements flowIF {
     this.color = json.color;
     this.text = this.name = json.text;
     this.size = json.size;
+    this.rotateWithCamera = json.rotateWithCamera;
     this.position.fromArray(json.matrix[0]);
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);

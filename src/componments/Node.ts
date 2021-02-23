@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+
+import { get, post } from "../tools/http";
 
 import flowIF from "./flowIF";
 import flowLine from "./Line";
@@ -6,12 +9,13 @@ import flowIcon from "./Land";
 import TextBoard from "./TextBoard";
 import FragFactory from "./textRenderer/fragFactory";
 
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
-
 const SIZE = 40;
 
 export default class flowNode extends THREE.Mesh implements flowIF {
   _name: string;
+  _datasetID: string;
+  _dataRequestInterval: number;
+  _queryData: any;
   nameText: TextBoard;
   mainMesh: THREE.Mesh;
   line: THREE.LineSegments;
@@ -39,7 +43,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
       new THREE.MeshBasicMaterial({
         transparent: true,
-         depthWrite:false,
+        depthWrite: false,
         opacity: 0,
       })
     );
@@ -70,7 +74,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: "#fff",
         transparent: true,
-         depthWrite:false,
+        depthWrite: false,
         opacity: 0.8,
       })
     );
@@ -123,6 +127,13 @@ export default class flowNode extends THREE.Mesh implements flowIF {
           this.color = value;
         },
         () => this.color,
+      ],
+      text_data: [
+        "数据集",
+        (value) => {
+          this.datasetID = value;
+        },
+        () => this.datasetID,
       ],
       list_type: [
         "形状",
@@ -275,11 +286,33 @@ export default class flowNode extends THREE.Mesh implements flowIF {
   get text() {
     return this._name;
   }
+  get datasetID() {
+    return this._datasetID;
+  }
+  set datasetID(value) {
+    this._datasetID = value;
+    clearInterval(this._dataRequestInterval);
+    if (value) {
+      this._dataRequestInterval = window.setInterval(() => {
+        post(
+          `https://test.visdata.com.cn:8081/visdata/rest/dataquery/dataconvert/query?definedStr=${this.datasetID}`
+        ).then((result) => {
+          if (result.status === 200 && result.data.result !== this.datasetID) {
+            console.log("DATA UPDATE:",this.datasetID, result.data.result);
+          } else {
+            console.log("ERROR QUERYSTR:", this.datasetID);
+          }
+        });
+      }, 60000);
+    }
+  }
+
   toADGEJSON(lineArray: any[]) {
     let ret: any = {};
     ret.type = "Node";
     ret.uuid = this.uuid;
     ret.name = this.text;
+    ret.datasetID = this.datasetID;
     ret.nameOffset = this.nameText.position.z;
     ret.iconHeight = this.iconPlane.position.y;
     ret.color = this.color;
@@ -315,6 +348,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     this.position.fromArray(json.matrix[0]);
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
+    this.datasetID = json.datasetID;
   }
 }
 

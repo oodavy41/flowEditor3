@@ -510,15 +510,15 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       });
     });
 
-    let xscale = 1.7,
-      yscale = 0.9;
+    let xscale = 1,
+      yscale = 1;
     dagre.layout(g);
     g.nodes().forEach((v) => {
       let info = g.node(v);
       console.log(info.label, " x:" + info.x, " y:" + info.y);
       let obj = objs.find((o) => o.uuid === v);
-      obj.position.x = info.x * xscale - canvasWH[0] / 2;
-      obj.position.z = 30 + info.y * yscale - canvasWH[1] / 2;
+      obj.position.x = 0 + info.x * xscale - canvasWH[0] / 8;
+      obj.position.z = 0 + info.y * yscale - canvasWH[1] / 8 ;
     });
     g.edges().forEach((e) => {
       let info = g.edge(e);
