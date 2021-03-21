@@ -1,14 +1,19 @@
 import * as THREE from "three";
 import Events from "events";
 
-import { CAMERA_STATE, EventEmitter } from "../GLOBAL";
+import { CAMERA_STATE, EventEmitter } from "../../GLOBAL";
 
-import flowIF from "./flowIF";
-import FragFactory from "./textRenderer/fragFactory";
-import TextBoard from "./textRenderer/board";
+import flowIF from "./flowIFs";
+import FragFactory from "../textRenderer/fragFactory";
+import TextBoard from "../textRenderer/board";
+
+let afterPickFlag = false;
+let temp_pickingCoord = [0, 0];
+let temp_objCoord = [0, 0];
 
 export default class TextNode extends TextBoard implements flowIF {
   name: string;
+  flowUUID: string;
   isPicked: boolean;
   isHoving: boolean;
   _rotateWithCamera: boolean;
@@ -23,11 +28,12 @@ export default class TextNode extends TextBoard implements flowIF {
     scene: THREE.Scene,
     text: string,
     size: number,
-    color: string | number,
+    color: string,
     textFactory: FragFactory
   ) {
     super(textFactory, text || "TEXT text", size || 40, color);
     this.name = text || "TEXT text";
+    this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
     this.position.y = 10;
     scene.add(this);
     this.rotateX(-Math.PI / 2);
@@ -38,6 +44,7 @@ export default class TextNode extends TextBoard implements flowIF {
     this._rotateWithCamera = false;
     this.onClick = () => {
       this.isPicked = true;
+      afterPickFlag = true;
     };
     this.offClick = () => {
       this.isPicked = false;
@@ -52,6 +59,7 @@ export default class TextNode extends TextBoard implements flowIF {
       }
     };
     this.onUpdateData = {
+      label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
         "颜色",
         (value) => {
@@ -123,7 +131,17 @@ export default class TextNode extends TextBoard implements flowIF {
     };
 
     this.onMouseMove = (point) => {
-      this.position.set(point.x, this.position.y, point.z);
+      if (afterPickFlag) {
+        temp_pickingCoord = [point.x, point.z];
+        temp_objCoord = [this.position.x, this.position.z];
+        afterPickFlag = false;
+      } else {
+        this.position.set(
+          temp_objCoord[0] + point.x - temp_pickingCoord[0],
+          this.position.y,
+          temp_objCoord[1] + point.z - temp_pickingCoord[1]
+        );
+      }
     };
   }
   get rotateWithCamera() {
@@ -167,6 +185,7 @@ export default class TextNode extends TextBoard implements flowIF {
     let ret: any = {};
     ret.type = "TextBoard";
     ret.color = this.color;
+    ret.flowUUID = this.flowUUID;
     ret.size = this.size;
     ret.text = this.text;
     ret.rotateWithCamera = this.rotateWithCamera;
@@ -179,6 +198,7 @@ export default class TextNode extends TextBoard implements flowIF {
   }
   fromADGEJSON(json: any) {
     this.color = json.color;
+    json.flowUUID && (this.flowUUID = json.flowUUID);
     this.text = this.name = json.text;
     this.size = json.size;
     this.rotateWithCamera = json.rotateWithCamera;

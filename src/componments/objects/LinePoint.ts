@@ -1,11 +1,11 @@
 import * as THREE from "three";
 
-import flowIF from "./flowIF";
+import flowIF from "./flowIFs";
 import flowLine from "./Line";
 import flowNode from "./Node";
 
 export default class linePoint extends THREE.Mesh implements flowIF {
-  color: string | number;
+  color: string;
   line: flowLine;
   isPicked: boolean;
   isHoving: boolean;

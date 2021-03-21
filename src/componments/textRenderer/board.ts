@@ -7,8 +7,8 @@ export default class TextBoard extends THREE.Mesh {
   _text: string;
   index: number;
   _size: number;
-  _color: string | number;
-  _bgColor: string | number;
+  _color: string;
+  _bgColor: string;
   uvs: number[];
   width: number;
   height: number;
@@ -16,20 +16,21 @@ export default class TextBoard extends THREE.Mesh {
     factory: fragFactory,
     text: string,
     size: number = 40,
-    color: string | number = "#000",
-    bgColor: string | number = "rgba(1,1,1,0)"
+    color: string = "#000",
+    bgColor: string = "rgba(1,1,1,0)"
   ) {
     super(
       new THREE.BufferGeometry(),
       new THREE.MeshBasicMaterial({
         map: factory.tex,
         transparent: true,
-        side:THREE.DoubleSide,
-         depthWrite:false,
+        side: THREE.DoubleSide,
+        depthWrite: false,
         // depthFunc: THREE.AlwaysDepth,
       })
     );
     factory.regist(text + Math.random(), this);
+    this.renderOrder = 999;
     this.factory = factory;
     this._text = text;
     this._size = size;

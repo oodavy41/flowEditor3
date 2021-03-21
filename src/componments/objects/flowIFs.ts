@@ -1,8 +1,10 @@
 import * as THREE from "three";
+import { StyleNode } from "../../GLOBAL";
 
 export default interface flowIF {
-  name?: string;
-  color: string | number;
+  text?: string;
+  color: string;
+  flowUUID?: string;
   isPicked: boolean;
   isHoving: boolean;
   tick?: (delta: number) => void;
@@ -16,8 +18,17 @@ export default interface flowIF {
     raycaster?: THREE.Raycaster
   ) => void;
 
-  onDispose: (scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) => void;
+  onDispose: (
+    scene: THREE.Scene,
+    objArray: (flowIF | ((flowIF & dataSetIF) & THREE.Object3D))[]
+  ) => void;
 
   fromADGEJSON: (json: any) => void;
   toADGEJSON: (cache?: any) => any;
+}
+export interface dataSetIF {
+  data: number;
+  stateSteps: StyleNode[];
+
+  updateData: () => void;
 }

@@ -8,9 +8,11 @@
   },
   "scripts": {
     "dev": "npm run development",
-    "pub": "npm run production",
+    "pubVis": "npm run production",
+    "pubMod": "npm run module",
     "development": "cross-env NODE_ENV=development webpack serve --config webpack.config.dev.js",
-    "production": "cross-env NODE_ENV=production webpack --config webpack.config.production.js"
+    "production": "cross-env NODE_ENV=production webpack --config webpack.config.production.js",
+    "module": "cross-env NODE_ENV=production webpack --config webpack.config.module.js"
   },
   "dependencies": {
     "@babel/polyfill": "^7.11.5",

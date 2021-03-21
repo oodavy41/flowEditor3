@@ -1,0 +1,323 @@
+{
+  "name": "流程图",
+  "type": "flow3D",
+  "subType": "basic",
+  "description": "",
+  "config": {
+    "chart": [
+      {
+        "type": "group",
+        "title": "主属性",
+        "editors": [
+          {
+            "field": "BgColor",
+            "title": "背景颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "gridColor",
+            "title": "网格颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "cameraHeight",
+            "title": "相机高度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 4000,
+            "min": 500,
+            "max": 9000
+          },
+          {
+            "field": "sceneLight",
+            "title": "阴影强度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0.5,
+            "min": 0,
+            "max": 1
+          },
+          {
+            "field": "import",
+            "title": "导入",
+            "type": "text",
+            "required": true,
+            "default": ""
+          }
+        ]
+      }
+    ],
+    "flow3DNode": [
+      {
+        "type": "group",
+        "title": "主属性",
+        "editors": [
+          {
+            "field": "color",
+            "title": "颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "color_line",
+            "title": "描边颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "list_type",
+            "title": "形状",
+            "description": "节点显示的模型",
+            "type": "select",
+            "required": true,
+            "multiSelect": false,
+            "values": [
+              {
+                "id": "BOX",
+                "name": "盒状"
+              },
+              {
+                "id": "CYLINDER",
+                "name": "棱柱"
+              },
+              {
+                "id": "DODECAHE",
+                "name": "二十面体"
+              },
+              {
+                "id": "SPHERE",
+                "name": "球状"
+              },
+              {
+                "id": "CONE",
+                "name": "棱锥"
+              }
+            ],
+            "default": "BOX"
+          },
+          {
+            "field": "name",
+            "title": "名称",
+            "type": "text",
+            "required": true,
+            "default": ""
+          },
+          {
+            "field": "model",
+            "title": "模型导入",
+            "type": "upload",
+            "accept": "*/obj",
+            "required": true
+          },
+          {
+            "field": "image_icon",
+            "title": "贴图导入",
+            "type": "upload",
+            "accept": "image/*",
+            "required": true
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "title": "3d样式",
+        "editors": [
+          {
+            "field": "number_icon_rotateZ",
+            "title": "图标旋转",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1,
+            "min": 0,
+            "max": 3.1415
+          },
+          {
+            "field": "number_iconHeight",
+            "title": "图片高度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1
+          },
+          {
+            "field": "number_text",
+            "title": "文字偏移",
+            "type": "inputNumber",
+            "required": true,
+            "default": 10
+          },
+          {
+            "field": "number_scaleX",
+            "title": "x缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1
+          },
+          {
+            "field": "number_scaleY",
+            "title": "y缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1
+          },
+          {
+            "field": "number_scaleZ",
+            "title": "z缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1
+          },
+          {
+            "field": "number_icon_scaleX",
+            "title": "图标x缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1,
+            "min": 0
+          },
+          {
+            "field": "number_icon_scaleY",
+            "title": "图标y缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1,
+            "min": 0
+          },
+          {
+            "field": "number_icon_scaleZ",
+            "title": "图标z缩放",
+            "type": "inputNumber",
+            "required": true,
+            "default": 1,
+            "min": 0
+          }
+        ]
+      },
+      {
+        "type": "group",
+        "title": "阶段状态",
+        "editors": [
+          {
+            "field": "baseNumber1",
+            "title": "基准值1",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "field": "baseNumber2",
+            "title": "基准值2",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0,
+            "min": 0
+          },
+          {
+            "field": "color0",
+            "title": "颜色0",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "color1",
+            "title": "颜色1",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "color2",
+            "title": "颜色2",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "lineColor0",
+            "title": "描边颜色0",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "lineColor1",
+            "title": "描边颜色1",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "lineColor2",
+            "title": "描边颜色2",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          }
+        ]
+      }
+    ],
+    "flow3DLine": [
+      {
+        "type": "group",
+        "title": "主属性",
+        "editors": [
+          {
+            "field": "color",
+            "title": "颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "number",
+            "title": "虚线长度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 10,
+            "min": 1
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -11,26 +11,43 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 
-import styles from "./MainPlane.less";
+import styles from "./Main.less";
 
 import { CAMERA_STATE, EventEmitter } from "../GLOBAL";
 
 import FragFactory from "./textRenderer/fragFactory";
-import flowIF from "./flowIF";
-import flowNode from "./Node";
-import flowLine from "./Line";
-import Land from "./Land";
-import TextBoard from "./TextBoard";
+import flowIF, { dataSetIF } from "./objects/flowIFs";
+import flowNode from "./objects/Node";
+import flowLine from "./objects/Line";
+import Land from "./objects/Land";
+import TextBoard from "./objects/TextBoard";
 import MetaPanel from "./MetaPanel";
 import Popup from "./popup";
 import { render } from "react-dom";
 
 interface MainIf {
   dataProvider?: any[];
+  dataImport?: any[];
   compModel?: boolean;
+  dataOfSet?: {
+    config: any;
+    tileType: string;
+    editorId: string;
+    id: string;
+    value: number;
+  }[];
+  config: {
+    BgColor: string;
+    gridColor: string;
+    import: string;
+    cameraHeight: number;
+    sceneLight: number;
+  };
+  selfConfigUpdate?: (config: any, id?: string) => void;
 }
 interface MainState {
   displayMode: boolean;
+  focusMode: boolean;
   poping: [flowIF, number[]];
   pickedNode: flowIF & THREE.Object3D;
 }
@@ -60,14 +77,16 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
   bodyDom: HTMLDivElement;
   eventEmitter: Events.EventEmitter;
   scene: THREE.Scene;
-  objArray: Array<flowIF & THREE.Object3D>;
+  objArray: ((flowIF | (flowIF & dataSetIF)) & THREE.Object3D)[];
   addNode: (flag: string) => void;
   changeCamera: () => void;
   onResize: () => void;
   onDispose: () => void;
   updateCanvas: (key: string, value: any) => void;
+  recentSceneSTR: string;
   sceneImport: (value: string) => void;
   sceneOutport: () => string;
+  manualSave: () => void;
   outputArea: HTMLInputElement;
   saveInterval: number;
 
@@ -78,12 +97,13 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.eventEmitter = EventEmitter;
     this.state = {
       displayMode: false,
+      focusMode: false,
       pickedNode: null,
       poping: [null, []],
     };
   }
   componentDidMount() {
-    const { dataProvider, compModel } = this.props;
+    const { dataImport, compModel, dataOfSet } = this.props;
     // this.bodyDom.appendChild(textFactory.canvas);
     let canvasRect = this.canvas.getBoundingClientRect();
     let canvasSize = [
@@ -100,7 +120,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       canvasWH[1] / 2,
       -canvasWH[1] / 2,
       1,
-      10000
+      50000
     );
     camera.position.set(-1500, defaultCameraHeight, 1500);
     camera.lookAt(0, 0, 0);
@@ -126,15 +146,17 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.onResize = () => {
       clearTimeout(resizeCountDown);
       resizeCountDown = window.setTimeout(() => {
-        let canvasRect = this.canvas.getBoundingClientRect();
-        canvasSize = [
-          canvasRect.width,
-          canvasRect.height,
-          canvasRect.left,
-          canvasRect.top,
-        ];
+        if (this.canvas) {
+          let canvasRect = this.canvas.getBoundingClientRect();
+          canvasSize = [
+            canvasRect.width,
+            canvasRect.height,
+            canvasRect.left,
+            canvasRect.top,
+          ];
+        }
       }, 2000);
-      console.log(canvasRect, canvasSize);
+      console.log("onResize",canvasRect, canvasSize);
     };
     this.onResize();
     window.addEventListener("resize", this.onResize);
@@ -206,11 +228,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     fxaaPass.material.uniforms["resolution"].value.y =
       1 / (canvasWH[1] * pixelRatio);
     finalComposer.addPass(fxaaPass);
-
-    let objArray: Array<flowIF & THREE.Object3D> = [];
-    this.objArray = objArray;
+    this.objArray = [];
     let lastTime = 0;
-    function animate(t: number) {
+    let animate=(t: number)=> {
       requestAnimationFrame(animate);
       let delta = t - lastTime;
       lastTime = t;
@@ -225,14 +245,16 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       finalComposer.render();
       outlinePass.selectedObjects = [];
 
-      objArray.forEach((obj) => obj.tick && obj.tick(delta));
+      this.objArray.forEach(
+        (obj: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D) =>
+          obj.tick && obj.tick(delta)
+      );
     }
     animate(0);
 
     let canvasUpdatefunMap = {
       cameraHeight: (value: any) => {
         camera.position.y = +value;
-        console.log(value);
         camera.lookAt(0, 0, 0);
       },
       sceneLight: (value: any) => {
@@ -241,6 +263,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       },
       backgroundColor: (value: any) => {
         renderer.setClearColor(value, 1);
+      },
+      gridColor: (value: any) => {
+        (gridHelper.material as THREE.LineBasicMaterial).color.set(value);
       },
     };
     this.updateCanvas = (key: keyof typeof canvasUpdatefunMap, value: any) => {
@@ -276,11 +301,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.addNode = (flag: string) => {
       switch (flag) {
         case "NODE":
-          objArray.push(
+          this.objArray.push(
             new flowNode(
               scene,
               textFactory,
-              `NODE${objArray.length}`,
+              `NODE${this.objArray.length}`,
               NODE_COLOR,
               BORDER_COLOR
             )
@@ -288,10 +313,10 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           break;
         case "PLANE":
           let land = new Land(scene, "#888", lands);
-          objArray.push(land);
+          this.objArray.push(land);
           break;
         case "TEXT":
-          objArray.push(
+          this.objArray.push(
             new TextBoard(scene, "test text", 40, "#fff", textFactory)
           );
           break;
@@ -307,6 +332,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     // scene.add(locate);
 
     let onMouseMove = (event: MouseEvent) => {
+      let { focusMode } = this.state;
       mouse.x = ((event.clientX - canvasSize[2]) / canvasSize[0]) * 2 - 1;
       mouse.y = -((event.clientY - canvasSize[3]) / canvasSize[1]) * 2 + 1;
 
@@ -324,16 +350,23 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           this.state.pickedNode.onMouseMove(intersects[0].point, event);
         }
       }
-      var intersects = raycaster.intersectObjects(objArray);
+      var intersects = raycaster.intersectObjects(this.objArray);
       if (intersects.length > 0) {
         let result = intersects[0].object as flowIF & THREE.Object3D;
         result.switchLayer(POINT_BLOOM_LAYER, true);
         if (pointing !== result) {
           pointing && pointing.switchLayer(POINT_BLOOM_LAYER, false);
+          if (focusMode) {
+            pointing instanceof flowNode && pointing.switchRoadFocus(true);
+            result instanceof flowNode && result.switchRoadFocus(false);
+          }
           pointing = result;
         }
       } else {
         pointing && pointing.switchLayer(POINT_BLOOM_LAYER, false);
+        if (focusMode) {
+          pointing instanceof flowNode && pointing.switchRoadFocus(true);
+        }
         pointing = null;
       }
     };
@@ -346,13 +379,12 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       raycaster.setFromCamera(mouse, camera);
 
       // See if the ray from the camera into the world hits one of our meshes
-      var intersects = raycaster.intersectObjects(objArray);
+      var intersects = raycaster.intersectObjects(this.objArray);
       if (intersects.length > 0) {
         let result = intersects[0].object as flowIF & THREE.Object3D;
         if (this.state.pickedNode && this.state.pickedNode !== result) {
           this.state.pickedNode.switchLayer(POINT_BLOOM_LAYER, false);
         }
-        this.setState({ pickedNode: result });
         result.switchLayer(POINT_BLOOM_LAYER, true);
         if (event.ctrlKey && result instanceof flowNode) {
           let pos = new THREE.Vector3().copy(result.position);
@@ -366,12 +398,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               ],
             ],
           });
-        }
-        if (event.shiftKey && result instanceof flowNode) {
+        } else if (event.shiftKey && result instanceof flowNode) {
           picked = false;
           if (lineNode[0]) {
             lineNode[1] = result;
-            objArray.push(
+            this.objArray.push(
               new flowLine(scene, lineNode[0], lineNode[1], LINE_COLOR)
             );
             lineNode = [];
@@ -384,7 +415,6 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           (result as flowIF).onClick(raycaster);
         }
       } else {
-        console.log("pickNone!", objArray);
         if (this.state.pickedNode) {
           (this.state.pickedNode as flowIF).offClick(raycaster);
           (this.state.pickedNode as flowIF).switchLayer(
@@ -409,9 +439,10 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.canvas.addEventListener("mouseup", onMouseUp);
 
     this.sceneImport = (value) => {
-      console.log(value);
-      let objs = JSON.parse(value);
-      console.log(objs);
+      if (this.recentSceneSTR === value) return;
+      this.clearScene();
+      this.recentSceneSTR = value;
+      let objs = JSON.parse(atob(value));
       let nodes: { [key: string]: flowNode } = {};
       let lines: any[] = [];
       objs.forEach((obj: any) => {
@@ -419,7 +450,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           case "Land":
             let land = new Land(scene, "#fff", lands);
             land.fromADGEJSON(obj);
-            objArray.push(land);
+            this.objArray.push(land);
             break;
           case "Node":
             let node = new flowNode(
@@ -431,12 +462,12 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             );
             nodes[obj.uuid] = node;
             node.fromADGEJSON(obj);
-            objArray.push(node);
+            this.objArray.push(node);
             break;
           case "TextBoard":
             let tb = new TextBoard(scene, "name", 20, "#fff", textFactory);
             tb.fromADGEJSON(obj);
-            objArray.push(tb);
+            this.objArray.push(tb);
             break;
           case "Line":
             lines.push(obj);
@@ -445,27 +476,26 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             break;
         }
       });
-      console.log(lines);
       lines.forEach((lineObj) => {
         let start = nodes[lineObj.startID],
           end = nodes[lineObj.endID];
         if (start && end) {
           let line = new flowLine(scene, start, end, LINE_COLOR);
           line.fromADGEJSON(lineObj);
-          objArray.push(line);
+          this.objArray.push(line);
         }
       });
     };
     this.sceneOutport = () => {
       let lineIdMap: any[] = [];
-      console.log("outport", objArray);
-      let output = objArray.map((obj) => obj.toADGEJSON(lineIdMap));
+      let output = this.objArray.map((obj) => obj.toADGEJSON(lineIdMap));
       output.push(...lineIdMap);
-      return JSON.stringify(output);
+      this.recentSceneSTR = btoa(JSON.stringify(output));
+      return this.recentSceneSTR;
     };
 
-    if (dataProvider && dataProvider[0]) {
-      this.sceneImport(dataProvider[0]);
+    if (dataImport && dataImport[0]) {
+      this.sceneImport(dataImport[0]);
       this.setState({ displayMode: true });
     } else {
       let save = localStorage.getItem("saveJSON");
@@ -477,18 +507,69 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     }
 
     // this.setState({ needsUpdate: Math.random() });
+
+    this.manualSave = () => {
+      let save = this.sceneOutport();
+      localStorage.setItem("saveJSON", save);
+      if (this.props.selfConfigUpdate) {
+        this.props.selfConfigUpdate({ import: save });
+      }
+    };
     this.saveInterval = window.setInterval(() => {
-      localStorage.setItem("saveJSON", this.sceneOutport());
+      this.manualSave();
     }, 60000);
+    this.dataUpdate();
+  }
+
+  componentDidUpdate() {
+    this.dataUpdate();
   }
 
   componentWillUnmount() {
     if (this.saveInterval) {
       clearInterval(this.saveInterval);
     }
-    this.onDispose();
+    this.onDispose && this.onDispose();
   }
 
+  dataUpdate() {
+    let { dataOfSet, config } = this.props;
+    if (config) {
+      config.BgColor && this.updateCanvas("backgroundColor", config.BgColor);
+      config.gridColor && this.updateCanvas("gridColor", config.gridColor);
+      config.cameraHeight &&
+        this.updateCanvas("cameraHeight", config.cameraHeight);
+      config.sceneLight && this.updateCanvas("sceneLight", config.sceneLight);
+      config.import && this.sceneImport(config.import);
+    }
+    if (!dataOfSet) return;
+    let dataMap: {
+      [key: string]: {
+        id: string;
+        tileType: string;
+        editorId: string;
+        value: number;
+        config: any;
+      };
+    } = {};
+    dataOfSet.forEach((data) => (dataMap[data.id] = data));
+    this.objArray.forEach((item) => {
+      if ((item as dataSetIF).updateData) {
+        let itemId = item.flowUUID;
+        let data = dataMap[itemId];
+        if (itemId && data) {
+          (item as dataSetIF).data = data.value;
+          if (data.config && Object.keys(data.config).length > 0) {
+            for (let key in data.config) {
+              data.config[key] &&
+                item.onUpdateData[key] &&
+                item.onUpdateData[key][1](data.config[key]);
+            }
+          }
+        }
+      }
+    });
+  }
   layout(objs: THREE.Object3D[]) {
     let g = new dagre.graphlib.Graph();
     g.setGraph({});
@@ -518,7 +599,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       console.log(info.label, " x:" + info.x, " y:" + info.y);
       let obj = objs.find((o) => o.uuid === v);
       obj.position.x = 0 + info.x * xscale - canvasWH[0] / 8;
-      obj.position.z = 0 + info.y * yscale - canvasWH[1] / 8 ;
+      obj.position.z = 0 + info.y * yscale - canvasWH[1] / 8;
     });
     g.edges().forEach((e) => {
       let info = g.edge(e);
@@ -531,18 +612,53 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     });
   }
 
+  switchFocus(hide: boolean) {
+    this.setState({ focusMode: hide });
+    this.objArray.forEach((o) => {
+      if (o instanceof flowNode || o instanceof flowLine) {
+        o.hide = hide;
+      }
+    });
+  }
+
+  clearScene() {
+    this.objArray.forEach((o) => {
+      if (o.onDispose) o.onDispose(this.scene, this.objArray);
+      else this.scene.remove(o);
+    });
+    this.objArray = [];
+  }
+
   render() {
-    const { dataProvider } = this.props;
-    const { displayMode } = this.state;
+    const { dataImport } = this.props;
+    const { displayMode, focusMode } = this.state;
     const { poping } = this.state;
     return (
       <div className={styles.main} ref={(m) => (this.bodyDom = m)}>
         <div className={styles.buttons}>
           <div
             className={[styles.rotateButton, styles.button].join(" ")}
+            onClick={() => this.manualSave && this.manualSave()}
+          >
+            保存场景
+          </div>
+          <div
+            className={[styles.rotateButton, styles.button].join(" ")}
             onClick={() => this.changeCamera && this.changeCamera()}
           >
             切换视角
+          </div>
+          <div
+            className={[
+              styles.rotateButton,
+              styles.button,
+              focusMode ? "" : styles.disabled,
+            ].join(" ")}
+            onClick={() => {
+              this.switchFocus(!focusMode);
+            }}
+          >
+            高亮模式
           </div>
           {!displayMode && (
             <>
@@ -579,7 +695,15 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             className={styles.mainCanvas}
             ref={(m) => (this.canvas = m)}
           ></canvas>
-          <Popup node={poping[0]} position={poping[1]}></Popup>
+          <Popup
+            node={poping[0]}
+            position={poping[1]}
+            onClose={() =>
+              this.setState({
+                poping: [null, []],
+              })
+            }
+          ></Popup>
         </div>
         <MetaPanel
           scene={this.scene}

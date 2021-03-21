@@ -22,3 +22,12 @@
       - 自身终点的点UUID
     - color?:
       - 连线显示颜色
+
+## 弹窗消息格式
+- json字符串
+- state: enum
+  - 可选字段: `red` `yellow` `green`
+- 标题: string
+  - 消息标题
+- 内容: string
+- 跳转链接?: url 

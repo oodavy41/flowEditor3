@@ -6,3 +6,8 @@ export enum CAMERA_STATE {
 }
 import Events from "events";
 export let EventEmitter = new Events.EventEmitter();
+export type StyleNode = {
+  cutPoint: number;
+  color: string;
+  lineColor: string;
+};

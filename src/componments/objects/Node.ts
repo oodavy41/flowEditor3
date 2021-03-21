@@ -1,27 +1,33 @@
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
-import { get, post } from "../tools/http";
+import { StyleNode } from "../../GLOBAL";
+import { get, post } from "../../tools/http";
 
-import flowIF from "./flowIF";
+import flowIF, { dataSetIF } from "./flowIFs";
 import flowLine from "./Line";
 import flowIcon from "./Land";
 import TextBoard from "./TextBoard";
-import FragFactory from "./textRenderer/fragFactory";
+import FragFactory from "../textRenderer/fragFactory";
 
 const SIZE = 40;
+const hideOpacity = 0.2;
 
-export default class flowNode extends THREE.Mesh implements flowIF {
-  _name: string;
-  _datasetID: string;
-  _dataRequestInterval: number;
-  _queryData: any;
+export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
+  private _name: string;
+  private _datasetID: string;
+  private _dataRequestInterval: number;
+  private _queryData: any;
+  private _hide: boolean;
+  private _data: number;
+  private _stateSteps: StyleNode[];
   nameText: TextBoard;
   mainMesh: THREE.Mesh;
   line: THREE.LineSegments;
   iconPlane: THREE.Mesh;
-  _color: string | number;
-  _lineColor: string | number;
+  private _color: string;
+  flowUUID: string;
+  private _lineColor: string;
   starts: flowLine[];
   ends: flowLine[];
   isPicked: boolean;
@@ -36,8 +42,8 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     scene: THREE.Scene,
     textFactory: FragFactory,
     name: string,
-    color: string | number,
-    lineColor?: string | number
+    color: string,
+    lineColor?: string
   ) {
     super(
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
@@ -47,6 +53,8 @@ export default class flowNode extends THREE.Mesh implements flowIF {
         opacity: 0,
       })
     );
+    this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
+    this.stateSteps = [];
     this._color = color;
     this._lineColor = lineColor || "#888";
     this._name = name;
@@ -56,12 +64,17 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       geo,
       new THREE.MeshLambertMaterial({
         color: color,
+        transparent: true,
       })
     );
     const edges = new THREE.EdgesGeometry(this.mainMesh.geometry);
     const line = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: this.lineColor, linewidth: 1 })
+      new THREE.LineBasicMaterial({
+        color: this.lineColor,
+        linewidth: 1,
+        transparent: true,
+      })
     );
     this.line = line;
     line.scale.set(1.01, 1.01, 1.01);
@@ -121,6 +134,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       }
     };
     this.onUpdateData = {
+      label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
         "颜色",
         (value) => {
@@ -169,22 +183,27 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       model: [
         "模型",
         (value) => {
-          new OBJLoader().load(URL.createObjectURL(value), (obj) => {
-            this.mainMesh.geometry = (obj.children[0] as THREE.Mesh).geometry;
-            line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
-          });
+          console.log("model Load", value);
+          if (value && value instanceof File) {
+            new OBJLoader().load(URL.createObjectURL(value), (obj) => {
+              this.mainMesh.geometry = (obj.children[0] as THREE.Mesh).geometry;
+              line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+            });
+          }
         },
       ],
       image_icon: [
         "贴图",
         (value) => {
-          var texture = new THREE.TextureLoader().load(
-            URL.createObjectURL(value)
-          );
-          this.iconPlane.visible = true;
-          (this.iconPlane.material as THREE.MeshBasicMaterial).map = texture;
-          (this.iconPlane
-            .material as THREE.MeshBasicMaterial).needsUpdate = true;
+          if (value && value instanceof File) {
+            var texture = new THREE.TextureLoader().load(
+              URL.createObjectURL(value)
+            );
+            this.iconPlane.visible = true;
+            (this.iconPlane.material as THREE.MeshBasicMaterial).map = texture;
+            (this.iconPlane
+              .material as THREE.MeshBasicMaterial).needsUpdate = true;
+          }
         },
       ],
       number_icon_scaleX: [
@@ -234,6 +253,11 @@ export default class flowNode extends THREE.Mesh implements flowIF {
         (value) => (this.mainMesh.scale.z = value),
         () => this.mainMesh.scale.z,
       ],
+      steps: [
+        "数据状态",
+        (value) => (this.stateSteps = value),
+        () => this.stateSteps,
+      ],
     };
 
     this.onMouseMove = (point) => {
@@ -244,23 +268,31 @@ export default class flowNode extends THREE.Mesh implements flowIF {
       }
     };
   }
-  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
-    scene.remove(this);
-    let index = objArray.indexOf(this);
-    if (index >= 0) {
-      objArray.splice(index, 1);
-      this.remove(this.mainMesh);
-      this.mainMesh.geometry.dispose();
-      (this.mainMesh.material as THREE.Material).dispose();
-      this.remove(this.iconPlane);
-      this.iconPlane.geometry.dispose();
-      (this.iconPlane.material as THREE.Material).dispose();
-      this.geometry.dispose();
-      (this.material as THREE.Material).dispose();
-      this.starts.forEach((line) => line.onDispose(scene, objArray));
-      this.ends.forEach((line) => line.onDispose(scene, objArray));
-    }
+
+  switchRoadFocus(hide: boolean) {
+    switchFocus(this, hide, true);
+    switchFocus(this, hide, false);
   }
+
+  updateData() {
+    if (!this.data) return;
+    let steps = [...this.stateSteps];
+    steps.unshift({
+      cutPoint: -Infinity,
+      color: this.color,
+      lineColor: this.lineColor,
+    });
+    steps.length > 2 && steps.sort((a, b) => a.cutPoint - b.cutPoint);
+    let k = 0;
+    while (k !== steps.length && this.data > steps[k].cutPoint) k++;
+    (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(
+      steps[k - 1].color
+    );
+    (this.line.material as THREE.LineBasicMaterial).color.set(
+      steps[k - 1].lineColor
+    );
+  }
+
   set color(value) {
     if (this.mainMesh.material) {
       (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(value);
@@ -279,12 +311,47 @@ export default class flowNode extends THREE.Mesh implements flowIF {
   get lineColor() {
     return this._lineColor;
   }
+  set hide(value) {
+    this._hide = value;
+    if (value) {
+      (this.mainMesh.material as THREE.Material).opacity = hideOpacity;
+      (this.line.material as THREE.Material).opacity = hideOpacity;
+      (this.iconPlane.material as THREE.Material).opacity = hideOpacity;
+      this.nameText.material.opacity = hideOpacity;
+    } else {
+      (this.mainMesh.material as THREE.Material).opacity = 1;
+      (this.line.material as THREE.Material).opacity = 1;
+      (this.iconPlane.material as THREE.Material).opacity = 1;
+      this.nameText.material.opacity = 1;
+    }
+  }
+  get hide() {
+    return this._hide;
+  }
   set text(value) {
     this._name = value;
     this.nameText.text = value;
   }
   get text() {
     return this._name;
+  }
+
+  set data(value) {
+    this._data = value;
+    this.updateData();
+  }
+  get data() {
+    return this._data;
+  }
+
+  set stateSteps(value) {
+    console.log(value);
+    this._stateSteps = value;
+    this.updateData();
+  }
+
+  get stateSteps() {
+    return this._stateSteps;
   }
   get datasetID() {
     return this._datasetID;
@@ -298,7 +365,7 @@ export default class flowNode extends THREE.Mesh implements flowIF {
           `https://test.visdata.com.cn:8081/visdata/rest/dataquery/dataconvert/query?definedStr=${this.datasetID}`
         ).then((result) => {
           if (result.status === 200 && result.data.result !== this.datasetID) {
-            console.log("DATA UPDATE:",this.datasetID, result.data.result);
+            console.log("DATA UPDATE:", this.datasetID, result.data.result);
           } else {
             console.log("ERROR QUERYSTR:", this.datasetID);
           }
@@ -312,6 +379,8 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     ret.type = "Node";
     ret.uuid = this.uuid;
     ret.name = this.text;
+    ret.flowUUID = this.flowUUID;
+    ret.stateSteps = btoa(JSON.stringify(this.stateSteps));
     ret.datasetID = this.datasetID;
     ret.nameOffset = this.nameText.position.z;
     ret.iconHeight = this.iconPlane.position.y;
@@ -324,12 +393,13 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     ];
     ret.mainMeshJson = this.mainMesh.toJSON();
     ret.iconMesh = this.iconPlane.toJSON();
-    console.log(this.starts);
     // lineArray.push(...this.starts.map((s) => s.toADGEJSON()));
     return ret;
   }
   fromADGEJSON(json: any) {
     this.text = json.name;
+    json.flowUUID && (this.flowUUID = json.flowUUID);
+    json.stateSteps && (this.stateSteps = JSON.parse(atob(json.stateSteps)));
     this.nameText.position.z = json.nameOffset;
     this.color = json.color;
     this.lineColor = json.lineColor;
@@ -349,6 +419,23 @@ export default class flowNode extends THREE.Mesh implements flowIF {
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
     this.datasetID = json.datasetID;
+  }
+  onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
+    scene.remove(this);
+    let index = objArray.indexOf(this);
+    if (index >= 0) {
+      objArray.splice(index, 1);
+      this.remove(this.mainMesh);
+      this.mainMesh.geometry.dispose();
+      (this.mainMesh.material as THREE.Material).dispose();
+      this.remove(this.iconPlane);
+      this.iconPlane.geometry.dispose();
+      (this.iconPlane.material as THREE.Material).dispose();
+      this.geometry.dispose();
+      (this.material as THREE.Material).dispose();
+      this.starts.forEach((line) => line.onDispose(scene, objArray));
+      this.ends.forEach((line) => line.onDispose(scene, objArray));
+    }
   }
 }
 
@@ -372,11 +459,26 @@ function geoGen(type: geometryType, SIZE: number) {
       return new THREE.BoxGeometry(SIZE, SIZE, SIZE);
     },
     SPHERE: () => {
-      return new THREE.SphereGeometry(SIZE);
+      return new THREE.SphereGeometry(SIZE / 2);
     },
     CONE: () => {
       return new THREE.ConeGeometry(SIZE * 0.6, SIZE, 4);
     },
   };
   return typeFun[type]();
+}
+
+function switchFocus(obj: flowNode, hide: boolean, forward: boolean) {
+  obj.hide = hide;
+  if (forward) {
+    obj.starts.forEach((l) => {
+      l.hide = hide;
+      switchFocus(l.end, hide, forward);
+    });
+  } else {
+    obj.ends.forEach((l) => {
+      l.hide = hide;
+      switchFocus(l.start, hide, forward);
+    });
+  }
 }

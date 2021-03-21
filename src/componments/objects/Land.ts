@@ -1,12 +1,13 @@
 import * as THREE from "three";
 
-import flowIF from "./flowIF";
+import flowIF from "./flowIFs";
 
 export default class Land extends THREE.Mesh implements flowIF {
-  _color: string | number;
+ private _color: string;
+  flowUUID: string;
   isPicked: boolean;
   isHoving: boolean;
-  _isBlooming: boolean;
+ private _isBlooming: boolean;
   lands: Land[];
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
@@ -18,16 +19,18 @@ export default class Land extends THREE.Mesh implements flowIF {
     raycaster?: THREE.Raycaster
   ) => void;
 
-  constructor(scene: THREE.Scene, color: string | number, lands: Land[]) {
+  constructor(scene: THREE.Scene, color: string, lands: Land[]) {
     super(
       new THREE.PlaneGeometry(200, 200),
       new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-         depthWrite:false,
+        depthWrite: false,
         opacity: 0.3,
       })
     );
+    this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
+    this.renderOrder = -999;
     this._color = color;
     this.lands = lands;
     this.position.y = 0.1;

@@ -1,19 +1,20 @@
 import React from "react";
-import flowIF from "./flowIF";
+import flowIF, { dataSetIF } from "./objects/flowIFs";
+import StepStyleEditor from "./stepStyleEditor";
 
 interface metaPanelIF {
   scene: THREE.Scene;
-  objArray: (flowIF & THREE.Object3D)[];
+  objArray: ((flowIF | (flowIF & dataSetIF)) & THREE.Object3D)[];
   compModel: boolean;
   canvasUpdater: (key: string, value: any) => void;
-  pickedUpdater: flowIF & THREE.Object3D;
+  pickedUpdater: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D;
 }
 
 export default function MetaPanel(props: metaPanelIF) {
   let { scene, objArray, compModel, canvasUpdater, pickedUpdater } = props;
   let nodeFun: {
     [key: string]: (
-      updateObj: flowIF & THREE.Object3D,
+      updateObj: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D,
       updateFun: (value: any) => void,
       updateLabel?: string,
       defaultValue?: any,
@@ -106,6 +107,23 @@ export default function MetaPanel(props: metaPanelIF) {
         ></input>
       </div>
     ),
+    label: (updateObj, updateFun, updateLabel, defaultVaule) => (
+      <div
+        key={Math.random()}
+        onClick={() => {
+          navigator.clipboard.writeText(defaultVaule);
+        }}
+      >
+        {updateLabel || "文本框"}: {defaultVaule}
+      </div>
+    ),
+    steps: (updateObj, updateFun, updateLabel, defaultValue) => (
+      <StepStyleEditor
+        UUID={updateObj.uuid}
+        levels={defaultValue}
+        onChange={(newSteps) => updateFun(newSteps)}
+      ></StepStyleEditor>
+    ),
   };
   let pickedDom: JSX.Element[] = [];
   if (pickedUpdater) {
@@ -117,7 +135,7 @@ export default function MetaPanel(props: metaPanelIF) {
         pickedUpdater.onUpdateData[key][2] &&
         pickedUpdater.onUpdateData[key][2]();
       Object.keys(nodeFun).forEach((funKey) => {
-        if (key.indexOf(funKey) > -1) {
+        if (key.indexOf(funKey) > -1 && (!compModel || funKey === "label")) {
           pickedDom.push(
             nodeFun[funKey](
               updateObj,
@@ -130,65 +148,69 @@ export default function MetaPanel(props: metaPanelIF) {
         }
       });
     }
-    pickedDom.push(
-      <div>
-        <button onClick={() => pickedUpdater.onDispose(scene, objArray)}>
-          删除
-        </button>
-      </div>
-    );
-    console.log(pickedDom);
+    !compModel &&
+      pickedDom.push(
+        <div>
+          <button onClick={() => pickedUpdater.onDispose(scene, objArray)}>
+            删除
+          </button>
+        </div>
+      );
   }
-  if (compModel) return <></>;
-  else
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          padding: 5,
-          color: "#000",
-          backgroundColor: "rgba(255,255,255,0.4)",
-        }}
-      >
-        <div>
-          视角高度
-          <input
-            type="range"
-            min="500"
-            max="9000"
-            defaultValue={4000}
-            onChange={(event) =>
-              canvasUpdater("cameraHeight", event.target.value)
-            }
-          />
-        </div>
-        <div>
-          伪光影强度
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            defaultValue={0.5}
-            onChange={(event) =>
-              canvasUpdater("sceneLight", event.target.value)
-            }
-          />
-        </div>
-        <div>
-          背景颜色
-          <input
-            type="color"
-            defaultValue="#000"
-            onChange={(event) =>
-              canvasUpdater("backgroundColor", event.target.value)
-            }
-          />
-        </div>
-        {pickedDom.length > 0 && <hr></hr>}
-        {pickedDom}
-      </div>
-    );
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        padding: 5,
+        color: "#000",
+        backgroundColor: "rgba(255,255,255,0.4)",
+      }}
+    >
+      {compModel ? (
+        <>{pickedDom}</>
+      ) : (
+        <>
+          <div>
+            视角高度
+            <input
+              type="range"
+              min="500"
+              max="9000"
+              defaultValue={4000}
+              onChange={(event) =>
+                canvasUpdater("cameraHeight", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            伪光影强度
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              defaultValue={0.5}
+              onChange={(event) =>
+                canvasUpdater("sceneLight", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            背景颜色
+            <input
+              type="color"
+              defaultValue="#000"
+              onChange={(event) =>
+                canvasUpdater("backgroundColor", event.target.value)
+              }
+            />
+          </div>
+          {pickedDom.length > 0 && <hr></hr>}
+          {pickedDom}
+        </>
+      )}
+    </div>
+  );
 }

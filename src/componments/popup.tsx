@@ -1,34 +1,41 @@
 import React from "react";
 import * as THREE from "three";
 
-import flowIF from "./flowIF";
+import flowIF from "./objects/flowIFs";
 
 import styles from "./popup.less";
 interface popupIF {
   node?: flowIF;
   position?: number[];
+  onClose?: () => void;
 }
 interface popupState {
-  updateFlag: number;
+  poping: boolean;
 }
 
 export default class popup extends React.Component<popupIF, popupState> {
   popingNode: flowIF;
-  wait: number;
+  onClose: () => void;
   constructor(props: popupIF) {
     super(props);
     this.state = {
-      updateFlag: 0,
+      poping: false,
     };
+    this.onClose = props.onClose;
     this.popingNode = null;
-    this.wait = 0;
   }
   componentDidUpdate() {
-    if (this.wait > 0) {
-      this.popingNode = this.props.node;
+    this.popingNode = this.props.node;
+    if (this.popingNode) {
+      this.setState({ poping: true });
     }
-    this.wait++;
-    console.log(this.wait);
+  }
+
+  shouldComponentUpdate(nextprops: popupIF, nextState: popupState) {
+    return (
+      this.popingNode !== nextprops.node ||
+      this.state.poping !== nextState.poping
+    );
   }
   render() {
     if (this.popingNode)
@@ -44,14 +51,18 @@ export default class popup extends React.Component<popupIF, popupState> {
             className={styles.closeBtn}
             onClick={() => {
               this.popingNode = null;
-              this.wait = 0;
-              this.setState({ updateFlag: Math.random() });
+              this.setState({ poping: false });
+              this.onClose();
             }}
           >
             x
           </button>
-          弹窗:{this.popingNode.name}
+          标题:{this.popingNode.text!}
           <hr></hr>
+          <p>内容：内容</p>
+          <p>
+            <a href="localhost:7000">立即查看</a>
+          </p>
         </div>
       );
     else return <></>;
