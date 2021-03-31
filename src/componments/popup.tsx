@@ -5,16 +5,16 @@ import flowIF from "./objects/flowIFs";
 
 import styles from "./popup.less";
 interface popupIF {
-  node?: flowIF;
+  info?: string[];
   position?: number[];
   onClose?: () => void;
 }
 interface popupState {
   poping: boolean;
 }
-
+// info : [status,titie,content,url]
 export default class popup extends React.Component<popupIF, popupState> {
-  popingNode: flowIF;
+  lastPopping: string;
   onClose: () => void;
   constructor(props: popupIF) {
     super(props);
@@ -22,26 +22,42 @@ export default class popup extends React.Component<popupIF, popupState> {
       poping: false,
     };
     this.onClose = props.onClose;
-    this.popingNode = null;
+    this.lastPopping=null;
   }
   componentDidUpdate() {
-    this.popingNode = this.props.node;
-    if (this.popingNode) {
+    let { info } = this.props;
+    this.lastPopping = info ? info[0] + info[1] + info[2] + info[3] : null;
+    if (this.lastPopping) {
       this.setState({ poping: true });
     }
   }
 
   shouldComponentUpdate(nextprops: popupIF, nextState: popupState) {
+    let nextInfo = nextprops.info;
+    console.log("should",this.lastPopping,nextInfo)
+    let thisPopping=nextInfo
+          ? nextInfo[0] + nextInfo[1] + nextInfo[2] + nextInfo[3]
+          : null
+    console.log(thisPopping,this.lastPopping !== thisPopping,this.lastPopping !== thisPopping || this.state.poping !== nextState.poping)
     return (
-      this.popingNode !== nextprops.node ||
-      this.state.poping !== nextState.poping
+      this.lastPopping !== thisPopping || this.state.poping !== nextState.poping
     );
   }
   render() {
-    if (this.popingNode)
+    let { info } = this.props;
+    if (this.lastPopping && info) {
+      let status = info[0],
+        title = info[1],
+        content = info[2],
+        url = info[3];
+      let statusMap: { [key: string]: string } = {
+        red: styles.red,
+        yellow: styles.yellow,
+        green: styles.green,
+      };
       return (
         <div
-          className={styles.main}
+          className={[styles.main, statusMap[status]].join(" ")}
           style={{
             left: this.props.position[0],
             top: this.props.position[1],
@@ -50,21 +66,21 @@ export default class popup extends React.Component<popupIF, popupState> {
           <button
             className={styles.closeBtn}
             onClick={() => {
-              this.popingNode = null;
+              this.lastPopping = null;
               this.setState({ poping: false });
               this.onClose();
             }}
           >
             x
           </button>
-          标题:{this.popingNode.text!}
+          标题:{title}
           <hr></hr>
-          <p>内容：内容</p>
+          <p>{content}</p>
           <p>
-            <a href="localhost:7000">立即查看</a>
+            <a href={url}>立即查看</a>
           </p>
         </div>
       );
-    else return <></>;
+    } else return <></>;
   }
 }

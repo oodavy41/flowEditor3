@@ -1,6 +1,7 @@
 import React from "react";
 import flowIF, { dataSetIF } from "./objects/flowIFs";
 import StepStyleEditor from "./stepStyleEditor";
+import { OBJ_PROP_ACT } from "../GLOBAL";
 
 interface metaPanelIF {
   scene: THREE.Scene;
@@ -38,7 +39,7 @@ export default function MetaPanel(props: metaPanelIF) {
           defaultValue={defaultValue}
           onChange={(event) => updateFun(event.target.value)}
         >
-          {keyObj[3].map((info: { key: string; value: number }) => (
+          {keyObj.map((info: { key: string; value: number }) => (
             <option value={info.value}>{info.key}</option>
           ))}
         </select>
@@ -127,13 +128,12 @@ export default function MetaPanel(props: metaPanelIF) {
   };
   let pickedDom: JSX.Element[] = [];
   if (pickedUpdater) {
-    for (let key in pickedUpdater.onUpdateData) {
+    pickedUpdater.onUpdateData("", OBJ_PROP_ACT.KEYS).forEach((key: string) => {
       let updateObj = pickedUpdater;
-      let updateLabel = pickedUpdater.onUpdateData[key][0];
-      let updateFun = pickedUpdater.onUpdateData[key][1];
-      let defaultValue =
-        pickedUpdater.onUpdateData[key][2] &&
-        pickedUpdater.onUpdateData[key][2]();
+      let updateLabel = pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.NAME);
+      let updateFun = (value:any) =>
+        pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.SET, value);
+      let defaultValue = pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.GET);
       Object.keys(nodeFun).forEach((funKey) => {
         if (key.indexOf(funKey) > -1 && (!compModel || funKey === "label")) {
           pickedDom.push(
@@ -142,12 +142,12 @@ export default function MetaPanel(props: metaPanelIF) {
               updateFun,
               updateLabel,
               defaultValue,
-              pickedUpdater.onUpdateData[key]
+              pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.LIST_NODES)
             )
           );
         }
       });
-    }
+    });
     !compModel &&
       pickedDom.push(
         <div>

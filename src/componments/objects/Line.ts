@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { StyleNode } from "../../GLOBAL";
+import { StyleNode, OBJ_PROP_ACT } from "../../GLOBAL";
 
 import flowIF, { dataSetIF } from "./flowIFs";
 import flowNode from "./Node";
@@ -49,7 +49,6 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   offNodeClick: () => void;
   onNodeClick: (fromStart: boolean, object: THREE.Object3D) => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
   onMouseMove?: (
     point: THREE.Vector3,
     event?: MouseEvent,
@@ -57,6 +56,8 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   ) => void;
   drawLine: () => void;
   updateFlowLine: (fromStart: boolean, object: flowNode) => void;
+  selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
+  editorID?: string;
   constructor(
     scene: THREE.Scene,
     start: flowNode,
@@ -176,28 +177,6 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
         this.layers.disable(layer);
       }
     };
-    this.onUpdateData = {
-      label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
-      color: [
-        "颜色",
-        (value) => {
-          this.color = value;
-        },
-        () => this.color,
-      ],
-      number: [
-        "虚线长度",
-        (value) => {
-          this.dashManager.changeProperty(+value);
-        },
-        () => this.dashManager.properties().dashLength,
-      ],
-      steps: [
-        "数据状态",
-        (value) => (this.stateSteps = value),
-        () => this.stateSteps,
-      ],
-    };
 
     this.drawLine = () => {
       this.updatePointKey();
@@ -242,6 +221,50 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     };
 
     this.updatePointKey();
+  }
+  onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
+    let funMap: {
+      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+    } = {
+      label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
+      color: [
+        "颜色",
+        (value) => {
+          this.color = value;
+        },
+        () => this.color,
+      ],
+      number: [
+        "虚线长度",
+        (value) => {
+          this.dashManager.changeProperty(+value);
+        },
+        () => this.dashManager.properties().dashLength,
+      ],
+      steps: [
+        "数据状态",
+        (value) => (this.stateSteps = value),
+        () => this.stateSteps,
+      ],
+    };
+
+    if (action === OBJ_PROP_ACT.KEYS) return Object.keys(funMap);
+    else if (funMap[propName]) {
+      if (action === OBJ_PROP_ACT.NAME || action === OBJ_PROP_ACT.LIST_NODES)
+        return funMap[propName][action];
+      else if (action === OBJ_PROP_ACT.SET) {
+        if (funMap[propName][OBJ_PROP_ACT.GET]() !== value) {
+          funMap[propName][action](value);
+          if (this.selfConfigUpdate && this.editorID) {
+            let config: { [key: string]: any } = {};
+            config[propName] = value;
+            this.selfConfigUpdate(config, this.editorID);
+          }
+        }
+      } else {
+        return funMap[propName][action] ? funMap[propName][action]() : null;
+      }
+    }
   }
 
   updateData() {

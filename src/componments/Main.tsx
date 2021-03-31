@@ -13,7 +13,7 @@ import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 
 import styles from "./Main.less";
 
-import { CAMERA_STATE, EventEmitter } from "../GLOBAL";
+import { CAMERA_STATE, EventEmitter, StyleNode } from "../GLOBAL";
 
 import FragFactory from "./textRenderer/fragFactory";
 import flowIF, { dataSetIF } from "./objects/flowIFs";
@@ -32,9 +32,10 @@ interface MainIf {
   dataOfSet?: {
     config: any;
     tileType: string;
-    editorId: string;
+    editorID: string;
     id: string;
     value: number;
+    message?: string[] | undefined;
   }[];
   config: {
     BgColor: string;
@@ -43,12 +44,12 @@ interface MainIf {
     cameraHeight: number;
     sceneLight: number;
   };
-  selfConfigUpdate?: (config: any, id?: string) => void;
+  selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
 }
 interface MainState {
   displayMode: boolean;
   focusMode: boolean;
-  poping: [flowIF, number[]];
+  poping: [string[], number[]];
   pickedNode: flowIF & THREE.Object3D;
 }
 const MIN_CAM_SCALE = 0.2;
@@ -77,13 +78,16 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
   bodyDom: HTMLDivElement;
   eventEmitter: Events.EventEmitter;
   scene: THREE.Scene;
+  camera: THREE.Camera;
   objArray: ((flowIF | (flowIF & dataSetIF)) & THREE.Object3D)[];
+  lands: Land[];
   addNode: (flag: string) => void;
   changeCamera: () => void;
   onResize: () => void;
   onDispose: () => void;
   updateCanvas: (key: string, value: any) => void;
   recentSceneSTR: string;
+  recentDataSTR: string;
   sceneImport: (value: string) => void;
   sceneOutport: () => string;
   manualSave: () => void;
@@ -99,7 +103,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       displayMode: false,
       focusMode: false,
       pickedNode: null,
-      poping: [null, []],
+      poping: [undefined, []],
     };
   }
   componentDidMount() {
@@ -122,6 +126,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       1,
       50000
     );
+    this.camera = camera;
     camera.position.set(-1500, defaultCameraHeight, 1500);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
@@ -156,7 +161,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           ];
         }
       }, 2000);
-      console.log("onResize",canvasRect, canvasSize);
+      console.log("onResize", canvasRect, canvasSize);
     };
     this.onResize();
     window.addEventListener("resize", this.onResize);
@@ -197,7 +202,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     let pointing: (flowIF & THREE.Object3D) | null = null;
     let picked = false;
     let lineNode: flowNode[] = [];
-    let lands: Land[] = [];
+    this.lands = [];
 
     const darkMaterial = new THREE.MeshBasicMaterial({ color: "black" });
     const materials: { [key: string]: THREE.Material | THREE.Material[] } = {};
@@ -219,7 +224,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       camera
     );
     landOutLine.visibleEdgeColor = new THREE.Color("#333");
-    landOutLine.selectedObjects = lands;
+    landOutLine.selectedObjects = this.lands;
     finalComposer.addPass(landOutLine);
     let fxaaPass = new ShaderPass(FXAAShader);
     const pixelRatio = renderer.getPixelRatio();
@@ -230,7 +235,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     finalComposer.addPass(fxaaPass);
     this.objArray = [];
     let lastTime = 0;
-    let animate=(t: number)=> {
+    let animate = (t: number) => {
       requestAnimationFrame(animate);
       let delta = t - lastTime;
       lastTime = t;
@@ -249,7 +254,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         (obj: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D) =>
           obj.tick && obj.tick(delta)
       );
-    }
+    };
     animate(0);
 
     let canvasUpdatefunMap = {
@@ -312,7 +317,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           );
           break;
         case "PLANE":
-          let land = new Land(scene, "#888", lands);
+          let land = new Land(scene, "#888", this.lands);
           this.objArray.push(land);
           break;
         case "TEXT":
@@ -387,17 +392,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         }
         result.switchLayer(POINT_BLOOM_LAYER, true);
         if (event.ctrlKey && result instanceof flowNode) {
-          let pos = new THREE.Vector3().copy(result.position);
-          pos = pos.project(camera);
-          this.setState({
-            poping: [
-              result,
-              [
-                ((pos.x + 1) * canvasWH[0]) / 2,
-                ((1 - pos.y) * canvasWH[1]) / 2,
-              ],
-            ],
-          });
+          //ctrl handle
         } else if (event.shiftKey && result instanceof flowNode) {
           picked = false;
           if (lineNode[0]) {
@@ -448,7 +443,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       objs.forEach((obj: any) => {
         switch (obj.type) {
           case "Land":
-            let land = new Land(scene, "#fff", lands);
+            let land = new Land(scene, "#fff", this.lands);
             land.fromADGEJSON(obj);
             this.objArray.push(land);
             break;
@@ -494,20 +489,6 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       return this.recentSceneSTR;
     };
 
-    if (dataImport && dataImport[0]) {
-      this.sceneImport(dataImport[0]);
-      this.setState({ displayMode: true });
-    } else {
-      let save = localStorage.getItem("saveJSON");
-      if (save && save !== "[]") {
-        if (confirm("发现存档，是否载入?")) {
-          this.sceneImport(save);
-        }
-      }
-    }
-
-    // this.setState({ needsUpdate: Math.random() });
-
     this.manualSave = () => {
       let save = this.sceneOutport();
       localStorage.setItem("saveJSON", save);
@@ -522,6 +503,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
   }
 
   componentDidUpdate() {
+    console.log("UUU");
     this.dataUpdate();
   }
 
@@ -543,31 +525,97 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       config.import && this.sceneImport(config.import);
     }
     if (!dataOfSet) return;
-    let dataMap: {
-      [key: string]: {
-        id: string;
-        tileType: string;
-        editorId: string;
-        value: number;
-        config: any;
-      };
-    } = {};
-    dataOfSet.forEach((data) => (dataMap[data.id] = data));
-    this.objArray.forEach((item) => {
-      if ((item as dataSetIF).updateData) {
-        let itemId = item.flowUUID;
-        let data = dataMap[itemId];
-        if (itemId && data) {
-          (item as dataSetIF).data = data.value;
-          if (data.config && Object.keys(data.config).length > 0) {
-            for (let key in data.config) {
-              data.config[key] &&
-                item.onUpdateData[key] &&
-                item.onUpdateData[key][1](data.config[key]);
-            }
+
+    let newDataSTR = JSON.stringify(dataOfSet);
+    if (this.recentDataSTR !== newDataSTR) {
+      this.recentDataSTR = newDataSTR;
+
+      let objMap: { [key: string]: flowIF & THREE.Object3D } = {};
+      this.objArray.forEach((o) => {
+        if (o.editorID) objMap[o.editorID] = o;
+      });
+      dataOfSet.forEach((data) => {
+        if (data.id === "000000") return;
+        let item: flowIF & THREE.Object3D;
+        if (objMap[data.editorID]) {
+          item = objMap[data.editorID];
+        } else {
+          switch (data.tileType) {
+            case "flow3DNode":
+              item = new flowNode(
+                this.scene,
+                textFactory,
+                `name`,
+                NODE_COLOR,
+                BORDER_COLOR,
+                data.editorID
+              );
+              this.objArray.push(item);
+              break;
+            case "flow3DLand":
+              let land = new Land(
+                this.scene,
+                "#888",
+                this.lands,
+                data.editorID
+              );
+              this.objArray.push(land);
+              item = land;
+              break;
+            case "flow3DText":
+              item = new TextBoard(
+                this.scene,
+                "test text",
+                40,
+                "#fff",
+                textFactory,
+                data.editorID
+              );
+              this.objArray.push(item);
+              break;
+            case "flow3DLine":
+              item = this.objArray.find((l) => l.flowUUID === data.id);
+              break;
+            default:
+              break;
           }
         }
-      }
+        if (!item) return;
+        item.selfConfigUpdate = this.props.selfConfigUpdate;
+
+        if (item instanceof flowNode || item instanceof flowLine)
+          item.data = data.value;
+        if (data.config && Object.keys(data.config).length > 0) {
+          //数据状态
+          let stepSteps: StyleNode[] = [];
+          for (let i = 0; i < 2; i++) {
+            if (data.config[`baseNumber${i}`]) {
+              stepSteps.push({
+                cutPoint: +data.config[`baseNumber${i}`],
+                color: data.config[`color${i}`],
+                lineColor: data.config[`lineColor${i}`],
+              });
+            }
+          }
+          for (let key in data.config) {
+            item.onUpdateData(key, 1, data.config[key]);
+          }
+        }
+        if (data.message) {
+          this.popupOnNode(item, data.message);
+        }
+      });
+    }
+  }
+
+  popupOnNode(result: THREE.Object3D, info: string[]) {
+    let pos = new THREE.Vector3().copy(result.position);
+    pos = pos.project(this.camera);
+    this.setState({
+      poping: [
+        info,
+        [((pos.x + 1) * canvasWH[0]) / 2, ((1 - pos.y) * canvasWH[1]) / 2],
+      ],
     });
   }
   layout(objs: THREE.Object3D[]) {
@@ -696,11 +744,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             ref={(m) => (this.canvas = m)}
           ></canvas>
           <Popup
-            node={poping[0]}
+            info={poping[0]}
             position={poping[1]}
             onClose={() =>
               this.setState({
-                poping: [null, []],
+                poping: [undefined, []],
               })
             }
           ></Popup>

@@ -11,3 +11,11 @@ export type StyleNode = {
   color: string;
   lineColor: string;
 };
+
+export enum OBJ_PROP_ACT {
+  NAME,
+  SET,
+  GET,
+  LIST_NODES,
+  KEYS,
+}
