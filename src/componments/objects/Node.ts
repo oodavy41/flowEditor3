@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
-import { StyleNode } from "../../GLOBAL";
+import { StyleNode, OBJ_PROP_ACT } from "../../GLOBAL";
 import { get, post } from "../../tools/http";
 
 import flowIF, { dataSetIF } from "./flowIFs";
@@ -15,7 +15,6 @@ const hideOpacity = 0.2;
 
 export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   private _name: string;
-  private _datasetID: string;
   private _dataRequestInterval: number;
   private _queryData: any;
   private _hide: boolean;
@@ -35,15 +34,17 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   onClick: () => void;
   offClick: () => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?, any[]?] };
   onMouseMove: (point: THREE.Vector3) => void;
+  editorID: string;
+  selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
 
   constructor(
     scene: THREE.Scene,
     textFactory: FragFactory,
     name: string,
     color: string,
-    lineColor?: string
+    lineColor?: string,
+    editorID?: string
   ) {
     super(
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
@@ -53,6 +54,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         opacity: 0,
       })
     );
+    this.editorID = editorID;
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
     this.stateSteps = [];
     this._color = color;
@@ -122,6 +124,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       this.isPicked = false;
       this.starts.forEach((_: flowLine) => _.offNodeClick());
       this.ends.forEach((_: flowLine) => _.offNodeClick());
+      this.onUpdateData("position", OBJ_PROP_ACT.SET, `${this.position.x},${this.position.z}`);
     };
     this.switchLayer = (layer, flag) => {
       this.isHoving = flag;
@@ -133,7 +136,25 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         this.layers.disable(layer);
       }
     };
-    this.onUpdateData = {
+
+    this.onMouseMove = (point) => {
+      if (this.isPicked) {
+        this.position.set(point.x, 5, point.z);
+        this.starts.forEach((_: flowLine) => _.updateFlowLine(true, this));
+        this.ends.forEach((_: flowLine) => _.updateFlowLine(false, this));
+      }
+    };
+  }
+
+  switchRoadFocus(hide: boolean) {
+    switchFocus(this, hide, true);
+    switchFocus(this, hide, false);
+  }
+
+  onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
+    let funMap: {
+      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+    } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
         "颜色",
@@ -141,13 +162,6 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
           this.color = value;
         },
         () => this.color,
-      ],
-      text_data: [
-        "数据集",
-        (value) => {
-          this.datasetID = value;
-        },
-        () => this.datasetID,
       ],
       list_type: [
         "形状",
@@ -183,14 +197,16 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       model: [
         "模型",
         (value) => {
-          console.log("model Load", value);
           if (value && value instanceof File) {
             new OBJLoader().load(URL.createObjectURL(value), (obj) => {
               this.mainMesh.geometry = (obj.children[0] as THREE.Mesh).geometry;
-              line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+              this.line.geometry = new THREE.EdgesGeometry(
+                this.mainMesh.geometry
+              );
             });
           }
         },
+        () => {},
       ],
       image_icon: [
         "贴图",
@@ -205,6 +221,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
               .material as THREE.MeshBasicMaterial).needsUpdate = true;
           }
         },
+        () => {},
       ],
       number_icon_scaleX: [
         "图标x缩放",
@@ -253,29 +270,47 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         (value) => (this.mainMesh.scale.z = value),
         () => this.mainMesh.scale.z,
       ],
+      position: [
+        "位置",
+        (value) => {
+          let pos = /^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/.exec(value);
+          if (pos) {
+            this.position.x = +pos[1];
+            this.position.z = +pos[3];
+          }
+        },
+        () => this.position.x,
+      ],
       steps: [
         "数据状态",
         (value) => (this.stateSteps = value),
         () => this.stateSteps,
       ],
     };
-
-    this.onMouseMove = (point) => {
-      this.position.set(point.x, 5, point.z);
-      if (this.isPicked) {
-        this.starts.forEach((_: flowLine) => _.updateFlowLine(true, this));
-        this.ends.forEach((_: flowLine) => _.updateFlowLine(false, this));
+    if (action === OBJ_PROP_ACT.KEYS) return Object.keys(funMap);
+    else if (funMap[propName]) {
+      if (action === OBJ_PROP_ACT.NAME || action === OBJ_PROP_ACT.LIST_NODES)
+        return funMap[propName][action];
+      else if (action === OBJ_PROP_ACT.SET) {
+        if (
+          propName.indexOf("position") !== -1 ||
+          funMap[propName][OBJ_PROP_ACT.GET]() !== value
+        ) {
+          funMap[propName][action](value);
+          if (this.selfConfigUpdate && this.editorID) {
+            let config: { [key: string]: any } = {};
+            config[propName] = value;
+            this.selfConfigUpdate(config, this.editorID, "flow3DNode");
+          }
+        }
+      } else {
+        return funMap[propName][action] ? funMap[propName][action]() : null;
       }
-    };
-  }
-
-  switchRoadFocus(hide: boolean) {
-    switchFocus(this, hide, true);
-    switchFocus(this, hide, false);
+    }
   }
 
   updateData() {
-    if (!this.data) return;
+    if (!(this.data && this.stateSteps)) return;
     let steps = [...this.stateSteps];
     steps.unshift({
       cutPoint: -Infinity,
@@ -353,26 +388,23 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   get stateSteps() {
     return this._stateSteps;
   }
-  get datasetID() {
-    return this._datasetID;
-  }
-  set datasetID(value) {
-    this._datasetID = value;
-    clearInterval(this._dataRequestInterval);
-    if (value) {
-      this._dataRequestInterval = window.setInterval(() => {
-        post(
-          `https://test.visdata.com.cn:8081/visdata/rest/dataquery/dataconvert/query?definedStr=${this.datasetID}`
-        ).then((result) => {
-          if (result.status === 200 && result.data.result !== this.datasetID) {
-            console.log("DATA UPDATE:", this.datasetID, result.data.result);
-          } else {
-            console.log("ERROR QUERYSTR:", this.datasetID);
-          }
-        });
-      }, 60000);
-    }
-  }
+  // set datasetID(value) {
+  //   this._datasetID = value;
+  //   clearInterval(this._dataRequestInterval);
+  //   if (value) {
+  //     this._dataRequestInterval = window.setInterval(() => {
+  //       post(
+  //         `https://test.visdata.com.cn:8081/visdata/rest/dataquery/dataconvert/query?definedStr=${this.datasetID}`
+  //       ).then((result) => {
+  //         if (result.status === 200 && result.data.result !== this.datasetID) {
+  //           console.log("DATA UPDATE:", this.datasetID, result.data.result);
+  //         } else {
+  //           console.log("ERROR QUERYSTR:", this.datasetID);
+  //         }
+  //       });
+  //     }, 60000);
+  //   }
+  // }
 
   toADGEJSON(lineArray: any[]) {
     let ret: any = {};
@@ -381,7 +413,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     ret.name = this.text;
     ret.flowUUID = this.flowUUID;
     ret.stateSteps = btoa(JSON.stringify(this.stateSteps));
-    ret.datasetID = this.datasetID;
+    ret.editorID = this.editorID;
     ret.nameOffset = this.nameText.position.z;
     ret.iconHeight = this.iconPlane.position.y;
     ret.color = this.color;
@@ -418,7 +450,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.position.fromArray(json.matrix[0]);
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
-    this.datasetID = json.datasetID;
+    this.editorID = json.edi;
   }
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);

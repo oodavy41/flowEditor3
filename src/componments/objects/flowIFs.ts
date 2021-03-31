@@ -1,17 +1,23 @@
 import * as THREE from "three";
-import { StyleNode } from "../../GLOBAL";
+import { StyleNode, OBJ_PROP_ACT } from "../../GLOBAL";
 
 export default interface flowIF {
   text?: string;
   color: string;
   flowUUID?: string;
+  editorID?: string;
   isPicked: boolean;
   isHoving: boolean;
   tick?: (delta: number) => void;
   switchLayer?: (layer: number, flag: boolean) => void;
   onClick?: (raycaster?: THREE.Raycaster) => void;
   offClick?: (raycaster?: THREE.Raycaster) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?, any[]?] };
+  onUpdateData?: (
+    propName: string,
+    action: OBJ_PROP_ACT,
+    value?: any
+  ) => any | void;
+  selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   onMouseMove?: (
     point: THREE.Vector3,
     event?: MouseEvent,

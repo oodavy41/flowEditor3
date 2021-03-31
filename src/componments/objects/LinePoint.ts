@@ -13,7 +13,6 @@ export default class linePoint extends THREE.Mesh implements flowIF {
   onClick: () => void;
   offClick: () => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?] };
   onMouseMove?: (
     point: THREE.Vector3,
     event?: MouseEvent,

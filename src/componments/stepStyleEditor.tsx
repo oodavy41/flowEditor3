@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleNode } from "../GLOBAL";
+import { StyleNode, OBJ_PROP_ACT } from "../GLOBAL";
 
 interface stepStyleProps {
   levels: StyleNode[];

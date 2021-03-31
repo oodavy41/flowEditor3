@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import Events from "events";
 
-import { CAMERA_STATE, EventEmitter } from "../../GLOBAL";
+import { CAMERA_STATE, EventEmitter, OBJ_PROP_ACT } from "../../GLOBAL";
 
 import flowIF from "./flowIFs";
 import FragFactory from "../textRenderer/fragFactory";
@@ -21,17 +21,20 @@ export default class TextNode extends TextBoard implements flowIF {
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: (raycaster?: THREE.Raycaster) => void;
   switchLayer: (layer: number, flag: boolean) => void;
-  onUpdateData: { [key: string]: [string, (value: any) => void, any?, any[]?] };
   onMouseMove: (point: THREE.Vector3) => void;
+  editorID: string;
+  selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
 
   constructor(
     scene: THREE.Scene,
     text: string,
     size: number,
     color: string,
-    textFactory: FragFactory
+    textFactory: FragFactory,
+    editorID?: string
   ) {
     super(textFactory, text || "TEXT text", size || 40, color);
+    this.editorID = editorID;
     this.name = text || "TEXT text";
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
     this.position.y = 10;
@@ -48,6 +51,7 @@ export default class TextNode extends TextBoard implements flowIF {
     };
     this.offClick = () => {
       this.isPicked = false;
+      this.onUpdateData("position", OBJ_PROP_ACT.SET, `${this.position.x},${this.position.z}`);
     };
 
     this.switchLayer = (layer, flag) => {
@@ -58,13 +62,32 @@ export default class TextNode extends TextBoard implements flowIF {
         this.layers.disable(layer);
       }
     };
-    this.onUpdateData = {
+    this.onMouseMove = (point) => {
+      if (afterPickFlag) {
+        temp_pickingCoord = [point.x, point.z];
+        temp_objCoord = [this.position.x, this.position.z];
+        afterPickFlag = false;
+      } else {
+        this.position.set(
+          temp_objCoord[0] + point.x - temp_pickingCoord[0],
+          this.position.y,
+          temp_objCoord[1] + point.z - temp_pickingCoord[1]
+        );
+      }
+    };
+  }
+
+  onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
+    let funMap: {
+      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+    } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
         "颜色",
         (value) => {
           this.color = value;
         },
+        ()=>this.color
       ],
       name: [
         "文字",
@@ -72,6 +95,7 @@ export default class TextNode extends TextBoard implements flowIF {
           this.text = value;
           this.name = value;
         },
+        ()=>this.text
       ],
       number: [
         "层级",
@@ -87,10 +111,21 @@ export default class TextNode extends TextBoard implements flowIF {
         },
         () => this.size,
       ],
+      position: [
+        "位置",
+        (value) => {
+          let pos = /^(\-?\d+(\.\d+)?),\s*(\-?\d+(\.\d+)?)$/.exec(value);
+          if (pos) {
+            this.position.x = +pos[1];
+            this.position.z = +pos[3];
+          }
+        },
+        () => this.position.x,
+      ],
       list_rotateX: [
         "X旋转",
-        (value) => (this.rotation.x = value),
-        () => this.rotation.x,
+        (value) => (this.rotation.x = k2a(value)),
+        () => a2k(this.rotation.x),
         [
           { key: "0°", value: 0 },
           { key: "90°", value: 0.5 * Math.PI },
@@ -100,8 +135,8 @@ export default class TextNode extends TextBoard implements flowIF {
       ],
       list_rotateY: [
         "Y旋转",
-        (value) => (this.rotation.y = value),
-        () => this.rotation.y,
+        (value) => (this.rotation.y = k2a(value)),
+        () => a2k(this.rotation.y),
         [
           { key: "0°", value: 0 },
           { key: "90°", value: 0.5 * Math.PI },
@@ -113,13 +148,13 @@ export default class TextNode extends TextBoard implements flowIF {
         "Z旋转",
         (value) => {
           if (value !== "FOLLOW") {
-            this.rotation.z = value;
+            this.rotation.z = k2a(value);
             this.rotateWithCamera = false;
           } else {
             this.rotateWithCamera = true;
           }
         },
-        () => this.rotation.z,
+        () => (this.rotateWithCamera ? "FOLLOW" : a2k(this.rotation.z)),
         [
           { key: "0°", value: 0 },
           { key: "90°", value: 0.5 * Math.PI },
@@ -130,19 +165,23 @@ export default class TextNode extends TextBoard implements flowIF {
       ],
     };
 
-    this.onMouseMove = (point) => {
-      if (afterPickFlag) {
-        temp_pickingCoord = [point.x, point.z];
-        temp_objCoord = [this.position.x, this.position.z];
-        afterPickFlag = false;
+    if (action === OBJ_PROP_ACT.KEYS) return Object.keys(funMap);
+    else if (funMap[propName]) {
+      if (action === OBJ_PROP_ACT.NAME || action === OBJ_PROP_ACT.LIST_NODES)
+        return funMap[propName][action];
+      else if (action === OBJ_PROP_ACT.SET) {
+        if (funMap[propName][OBJ_PROP_ACT.GET]() !== value) {
+          funMap[propName][action](value);
+          if (this.selfConfigUpdate && this.editorID) {
+            let config: { [key: string]: any } = {};
+            config[propName] = value;
+            this.selfConfigUpdate(config, this.editorID, "flow3DText");
+          }
+        }
       } else {
-        this.position.set(
-          temp_objCoord[0] + point.x - temp_pickingCoord[0],
-          this.position.y,
-          temp_objCoord[1] + point.z - temp_pickingCoord[1]
-        );
+        return funMap[propName][action] ? funMap[propName][action]() : null;
       }
-    };
+    }
   }
   get rotateWithCamera() {
     return this._rotateWithCamera;
@@ -194,6 +233,8 @@ export default class TextNode extends TextBoard implements flowIF {
       this.scale.toArray(),
       this.rotation.toArray(),
     ];
+    ret.editorID = this.editorID;
+
     return ret;
   }
   fromADGEJSON(json: any) {
@@ -205,5 +246,32 @@ export default class TextNode extends TextBoard implements flowIF {
     this.position.fromArray(json.matrix[0]);
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
+    this.editorID = json.editorID;
   }
+}
+
+function k2a(key: string) {
+  let ret = 0;
+  switch (key) {
+    case "90°":
+      ret = 0.5 * Math.PI;
+      break;
+    case "180°":
+      ret = Math.PI;
+      break;
+    case "270°":
+      ret = Math.PI * 1.5;
+      break;
+    case "0°":
+    default:
+      ret = 0;
+      break;
+  }
+  return ret;
+}
+function a2k(angle: number) {
+  if (angle === 0.5 * Math.PI) return "90°";
+  if (angle === Math.PI) return "180°";
+  if (angle === Math.PI * 1.5) return "270°";
+  if (angle === 0) return "0°";
 }

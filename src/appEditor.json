@@ -52,6 +52,7 @@
             "title": "导入",
             "type": "text",
             "required": true,
+            "readOnly": true,
             "default": ""
           }
         ]
@@ -118,7 +119,7 @@
             "title": "名称",
             "type": "text",
             "required": true,
-            "default": ""
+            "default": "name"
           },
           {
             "field": "model",
@@ -145,7 +146,7 @@
             "title": "图标旋转",
             "type": "inputNumber",
             "required": true,
-            "default": 1,
+            "default": 0,
             "min": 0,
             "max": 3.1415
           },
@@ -154,14 +155,14 @@
             "title": "图片高度",
             "type": "inputNumber",
             "required": true,
-            "default": 1
+            "default": 42
           },
           {
             "field": "number_text",
             "title": "文字偏移",
             "type": "inputNumber",
             "required": true,
-            "default": 10
+            "default": 45
           },
           {
             "field": "number_scaleX",
@@ -201,12 +202,19 @@
             "min": 0
           },
           {
-            "field": "number_icon_scaleZ",
-            "title": "图标z缩放",
+            "field": "number_icon_rotateZ",
+            "title": "图标旋转",
             "type": "inputNumber",
             "required": true,
-            "default": 1,
+            "default": 0,
             "min": 0
+          },
+          {
+            "field": "position",
+            "title": "位置",
+            "type": "text",
+            "required": true,
+            "default": "0,0"
           }
         ]
       },
@@ -219,26 +227,14 @@
             "title": "基准值1",
             "type": "inputNumber",
             "required": true,
-            "default": 0,
-            "min": 0
+            "default": -1
           },
           {
             "field": "baseNumber2",
             "title": "基准值2",
             "type": "inputNumber",
             "required": true,
-            "default": 0,
-            "min": 0
-          },
-          {
-            "field": "color0",
-            "title": "颜色0",
-            "type": "color",
-            "required": true,
-            "default": "rgba(255, 255, 255, 1)",
-            "style": {
-              "fieldWidth": 100
-            }
+            "default": -1
           },
           {
             "field": "color1",
@@ -253,16 +249,6 @@
           {
             "field": "color2",
             "title": "颜色2",
-            "type": "color",
-            "required": true,
-            "default": "rgba(255, 255, 255, 1)",
-            "style": {
-              "fieldWidth": 100
-            }
-          },
-          {
-            "field": "lineColor0",
-            "title": "描边颜色0",
             "type": "color",
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
@@ -315,6 +301,204 @@
             "required": true,
             "default": 10,
             "min": 1
+          }
+        ]
+      }
+    ],
+    "flow3DLand": [
+      {
+        "type": "group",
+        "title": "主属性",
+        "editors": [
+          {
+            "field": "color",
+            "title": "颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "number_icon_rotateZ",
+            "title": "旋转",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0,
+            "min": 0,
+            "max": 3.14
+          },
+          {
+            "field": "number",
+            "title": "高度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0
+          },
+          {
+            "field": "number_opacity",
+            "title": "透明度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0.7,
+            "max": 1,
+            "min": 0
+          },
+          {
+            "field": "image",
+            "title": "贴图导入",
+            "type": "upload",
+            "accept": "image/*",
+            "required": true
+          },
+          {
+            "field": "position",
+            "title": "位置",
+            "type": "text",
+            "required": true,
+            "default": "0,0"
+          },
+          {
+            "field": "size_x",
+            "title": "宽度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 200,
+            "min": 0
+          },
+          {
+            "field": "size_z",
+            "title": "长度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 200,
+            "min": 0
+          }
+        ]
+      }
+    ],
+    "flow3DText": [
+      {
+        "type": "group",
+        "title": "主属性",
+        "editors": [
+          {
+            "field": "color",
+            "title": "颜色",
+            "type": "color",
+            "required": true,
+            "default": "rgba(255, 255, 255, 1)",
+            "style": {
+              "fieldWidth": 100
+            }
+          },
+          {
+            "field": "name",
+            "title": "文字",
+            "type": "text",
+            "required": true,
+            "default": "TEXT"
+          },
+          {
+            "field": "number",
+            "title": "高度",
+            "type": "inputNumber",
+            "required": true,
+            "default": 0
+          },
+          {
+            "field": "number_Size",
+            "title": "字号",
+            "type": "inputNumber",
+            "required": true,
+            "default": 40
+          },
+          {
+            "field": "position",
+            "title": "位置",
+            "type": "text",
+            "required": true,
+            "default": "0,0"
+          },
+          {
+            "field": "list_rotateX",
+            "title": "X旋转",
+            "type": "select",
+            "required": true,
+            "multiSelect": false,
+            "values": [
+              {
+                "id": "0°",
+                "name": "0°"
+              },
+              {
+                "id": "90°",
+                "name": "90°"
+              },
+              {
+                "id": "180°",
+                "name": "180°"
+              },
+              {
+                "id": "270°",
+                "name": "270°"
+              }
+            ],
+            "default": "270°"
+          },
+          {
+            "field": "list_rotateY",
+            "title": "Y旋转",
+            "type": "select",
+            "required": true,
+            "multiSelect": false,
+            "values": [
+              {
+                "id": "0°",
+                "name": "0°"
+              },
+              {
+                "id": "90°",
+                "name": "90°"
+              },
+              {
+                "id": "180°",
+                "name": "180°"
+              },
+              {
+                "id": "270°",
+                "name": "270°"
+              }
+            ],
+            "default": "0°"
+          },
+          {
+            "field": "list_rotateZ",
+            "title": "Z旋转",
+            "type": "select",
+            "required": true,
+            "multiSelect": false,
+            "values": [
+              {
+                "id": "0°",
+                "name": "0°"
+              },
+              {
+                "id": "90°",
+                "name": "90°"
+              },
+              {
+                "id": "180°",
+                "name": "180°"
+              },
+              {
+                "id": "270°",
+                "name": "270°"
+              },
+              { "id": "FOLLOW", "name": "跟随视角" }
+            ],
+            "default": "FOLLOW"
           }
         ]
       }
