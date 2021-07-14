@@ -17,6 +17,7 @@ export default interface flowIF {
     action: OBJ_PROP_ACT,
     value?: any
   ) => any | void;
+  configToPush: { [key: string]: any };
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   onMouseMove?: (
     point: THREE.Vector3,

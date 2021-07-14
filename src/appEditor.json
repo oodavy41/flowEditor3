@@ -295,6 +295,13 @@
             }
           },
           {
+            "field": "checker_broken",
+            "title": "折线",
+            "type": "switch",
+            "required": true,
+            "default": true
+          },
+          {
             "field": "number",
             "title": "虚线长度",
             "type": "inputNumber",

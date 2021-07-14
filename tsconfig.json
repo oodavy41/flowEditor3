@@ -1,16 +1,14 @@
 {
-    "compilerOptions": {
-        "outDir": "./built",
-        "sourceMap": true,
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "noImplicitAny": true,
-        "module": "commonjs",
-        "allowJs": true,
-        "target": "es5",
-        "jsx": "react"
-    },
-    "include": [
-        "./src/**/*"
-    ]
+  "compilerOptions": {
+    "outDir": "./built",
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "module": "es6",
+    "target": "es6",
+    "allowJs": true,
+    "jsx": "react"
+  },
+  "include": ["./src/**/*"]
 }

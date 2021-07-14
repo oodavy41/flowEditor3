@@ -119,12 +119,17 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       this.isPicked = true;
       this.starts.forEach((_: flowLine) => _.onNodeClick(true, this));
       this.ends.forEach((_: flowLine) => _.onNodeClick(false, this));
+      console.log(this.stateSteps, this.data);
     };
     this.offClick = () => {
       this.isPicked = false;
       this.starts.forEach((_: flowLine) => _.offNodeClick());
       this.ends.forEach((_: flowLine) => _.offNodeClick());
-      this.onUpdateData("position", OBJ_PROP_ACT.SET, `${this.position.x},${this.position.z}`);
+      this.onUpdateData(
+        "position",
+        OBJ_PROP_ACT.SET,
+        `${this.position.x},${this.position.z}`
+      );
     };
     this.switchLayer = (layer, flag) => {
       this.isHoving = flag;
@@ -153,7 +158,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
 
   onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
     let funMap: {
-      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+      [key: string]: [string, (value: any) => void, () => any, any[]?];
     } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
@@ -217,8 +222,8 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
             );
             this.iconPlane.visible = true;
             (this.iconPlane.material as THREE.MeshBasicMaterial).map = texture;
-            (this.iconPlane
-              .material as THREE.MeshBasicMaterial).needsUpdate = true;
+            (this.iconPlane.material as THREE.MeshBasicMaterial).needsUpdate =
+              true;
           }
         },
         () => {},
@@ -310,7 +315,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   }
 
   updateData() {
-    if (!(this.data && this.stateSteps)) return;
+    if (!(this.data && this.stateSteps && this.stateSteps.length > 0)) return;
     let steps = [...this.stateSteps];
     steps.unshift({
       cutPoint: -Infinity,
@@ -450,7 +455,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.position.fromArray(json.matrix[0]);
     this.scale.fromArray(json.matrix[1]);
     this.rotation.fromArray(json.matrix[2]);
-    this.editorID = json.edi;
+    this.editorID = json.editorID;
   }
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);

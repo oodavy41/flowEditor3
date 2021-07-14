@@ -2,6 +2,8 @@ const path = require("path");
 const package = require("./package.json");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const ZipPlugin = require("zip-webpack-plugin");
+const BundleAnalyzerPlugin =
+  require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 
 const { data } = package;
 
@@ -10,21 +12,55 @@ const widgetPathName = data.widgetName;
 
 module.exports = {
   entry: "./src/production.tsx",
-  mode: "production",
+  mode: "development",
   output: {
     publicPath: "./",
     path: path.resolve(__dirname, "dist"),
-    filename: `index.js`,
-    libraryTarget: "umd",
+    filename: "index.js",
+    // libraryTarget: "umd",
   },
   resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
-  externals: {
-    react: "React",
-    "react-dom": "ReactDOM",
+  optimization: {
+    // minimize: true,
+    // splitChunks: {
+    //   minSize: 30, //提取出的chunk的最小大小
+    //   cacheGroups: {
+    //     default: {
+    //       name: "common",
+    //       chunks: "initial",
+    //       minChunks: 2, //模块被引用2次以上的才抽离
+    //       priority: -20,
+    //     },
+    //     vendors: {
+    //       //拆分第三方库（通过npm|yarn安装的库）
+    //       test: /[\\/]node_modules[\\/]/,
+    //       name: "vendor",
+    //       chunks: "initial",
+    //       priority: -10,
+    //     },
+    //   },
+    // },
   },
+
+  externals: [
+    {
+      react: "React",
+      "react-dom": "ReactDOM",
+      dagre: "dagre",
+    },
+    "events",
+    "three",
+    "three/examples/jsm/postprocessing/EffectComposer.js",
+    "three/examples/jsm/postprocessing/RenderPass.js",
+    "three/examples/jsm/postprocessing/ShaderPass.js",
+    "three/examples/jsm/postprocessing/OutlinePass.js",
+    "three/examples/jsm/shaders/FXAAShader.js",
+    "three/examples/jsm/loaders/OBJLoader.js",
+  ],
   module: {
+    noParse: /three|dagre/,
     rules: [
       {
         test: [/\.tsx?$/],
@@ -54,7 +90,6 @@ module.exports = {
           {
             loader: "css-loader",
             options: {
-              sourceMap: true,
               modules: {
                 localIdentName: "[local]_[hash:base64:5]",
               },
@@ -89,5 +124,6 @@ module.exports = {
     new ZipPlugin({
       filename: `${widgetPathName}.zip`,
     }),
+    new BundleAnalyzerPlugin({ analyzerPort: 8081 }),
   ],
 };

@@ -1,0 +1,49 @@
+{
+  "tileMetas": [
+    {
+      "name": "节点",
+      "type": "flow3DNode",
+      "role": "flowStyle",
+      "multiple": "999",
+      "defaultValue": [],
+      "mandatory": false
+    },
+    {
+      "name": "平面",
+      "type": "flow3DLand",
+      "role": "flowStyle",
+      "multiple": "999",
+      "defaultValue": [],
+      "mandatory": true
+    },
+    {
+      "name": "文字",
+      "type": "flow3DText",
+      "role": "flowStyle",
+      "multiple": "999",
+      "defaultValue": [],
+      "mandatory": true
+    },
+    {
+      "name": "连线",
+      "type": "flow3DLine",
+      "role": "flowStyle",
+      "multiple": "999",
+      "defaultValue": [],
+      "mandatory": true
+    }
+  ],
+  "typeName": "流程图",
+  "thumbImg": "/img/wgtmpl_thumb/flow3D.png",
+  "description": "flow3D",
+  "sort": "8.1",
+  "type": "flow3D",
+  "dataCount": "1440",
+  "groupName": "流程图",
+  "name": "ADGEditor",
+  "subType": "basic",
+  "styles": "",
+  "id": "bbf50851-8b2d-4017-bacb-9fd88ebf8b6e",
+  "event": [],
+  "dynamicDataUpdate": false
+}

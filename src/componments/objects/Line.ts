@@ -29,6 +29,8 @@ function caculatePoints(start: flowNode, end: flowNode) {
 }
 export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   private _color: string;
+  private _broken: boolean;
+  private _dash: boolean;
   flowUUID: string;
   private _hide: boolean;
   private _data: number;
@@ -62,9 +64,15 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     scene: THREE.Scene,
     start: flowNode,
     end: flowNode,
-    color: string
+    color: string,
+    broken = true
   ) {
-    let init = caculatePoints(start, end);
+    let init = broken
+      ? caculatePoints(start, end)
+      : [
+          new THREE.Vector3().copy(start.position),
+          new THREE.Vector3().copy(end.position),
+        ];
     let curve = new THREE.CatmullRomCurve3(init, false, "catmullrom", 0.01);
     super(
       new THREE.TubeGeometry(curve, 128, RADIUS, 8, false),
@@ -75,6 +83,8 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
         opacity: 0,
       })
     );
+    this.start = start;
+    this.end = end;
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
     this.stateSteps = [];
     this.curve = curve;
@@ -88,9 +98,6 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.add(mid1, mid2);
     this.color = color;
     scene.add(this);
-
-    this.start = start;
-    this.end = end;
 
     start.starts.push(this);
     end.ends.push(this);
@@ -106,37 +113,41 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
       let result = raycaster.intersectObjects(this.pointArray);
       if (result.length > 0) {
         this.picking = result[0].object as flowLinePoint;
-        let point = this.picking,
-          pre = this.pointArray[this.picking.key - 1],
-          next = this.pointArray[this.picking.key + 1];
-        if (!pre) {
-          pre = new flowLinePoint(this, this.start.position);
-          this.pointArray.unshift(pre);
+        if (this.broken) {
+          let point = this.picking,
+            pre = this.pointArray[this.picking.key - 1],
+            next = this.pointArray[this.picking.key + 1];
+          if (!pre) {
+            pre = new flowLinePoint(this, this.start.position);
+            this.pointArray.unshift(pre);
+          }
+          if (!next) {
+            next = new flowLinePoint(this, this.end.position);
+            this.pointArray.push(next);
+          }
+          let preFlag = Math.abs(pre.position.x - point.position.x) < 2,
+            nextFlag = Math.abs(next.position.x - point.position.x) < 2;
+          this.pickingNext = [next, nextFlag];
+          this.pickingPre = [pre, preFlag];
         }
-        if (!next) {
-          next = new flowLinePoint(this, this.end.position);
-          this.pointArray.push(next);
-        }
-        let preFlag = Math.abs(pre.position.x - point.position.x) < 2,
-          nextFlag = Math.abs(next.position.x - point.position.x) < 2;
-        this.pickingNext = [next, nextFlag];
-        this.pickingPre = [pre, preFlag];
       }
     };
     this.onNodeClick = (fromStart: boolean, object: THREE.Object3D) => {
       let point = object;
-      if (fromStart) {
-        let next = this.pointArray[0];
-        this.pickingNext = [
-          next,
-          Math.abs(next.position.x - point.position.x) < 2,
-        ];
-      } else {
-        let pre = this.pointArray[this.pointArray.length - 1];
-        this.pickingPre = [
-          pre,
-          Math.abs(pre.position.x - point.position.x) < 2,
-        ];
+      if (this.broken) {
+        if (fromStart) {
+          let next = this.pointArray[0];
+          this.pickingNext = [
+            next,
+            Math.abs(next.position.x - point.position.x) < 2,
+          ];
+        } else {
+          let pre = this.pointArray[this.pointArray.length - 1];
+          this.pickingPre = [
+            pre,
+            Math.abs(pre.position.x - point.position.x) < 2,
+          ];
+        }
       }
     };
     this.offClick = () => {
@@ -152,15 +163,17 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.onMouseMove = (point) => {
       if (this.picking) {
         this.picking.onMouseMove(point);
-        if (this.pickingPre[1]) {
-          this.pickingPre[0].position.x = point.x;
-        } else {
-          this.pickingPre[0].position.z = point.z;
-        }
-        if (this.pickingNext[1]) {
-          this.pickingNext[0].position.x = point.x;
-        } else {
-          this.pickingNext[0].position.z = point.z;
+        if (this.broken) {
+          if (this.pickingPre[1]) {
+            this.pickingPre[0].position.x = point.x;
+          } else {
+            this.pickingPre[0].position.z = point.z;
+          }
+          if (this.pickingNext[1]) {
+            this.pickingNext[0].position.x = point.x;
+          } else {
+            this.pickingNext[0].position.z = point.z;
+          }
         }
         this.drawLine();
       }
@@ -181,7 +194,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.drawLine = () => {
       this.updatePointKey();
       let curve = new THREE.CatmullRomCurve3(
-        [start, ...this.pointArray, end].map((e) => {
+        [this.start, ...this.pointArray, this.end].map((e) => {
           let r = new THREE.Vector3();
           e.getWorldPosition(r);
           return r;
@@ -204,29 +217,38 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
 
     this.updateFlowLine = (fromStart, object) => {
       let point = object.position;
-      if (fromStart) {
-        if (this.pickingNext[1]) {
-          this.pickingNext[0].position.x = point.x;
+      if (this.broken) {
+        if (fromStart) {
+          if (this.pickingNext[1]) {
+            this.pickingNext[0].position.x = point.x;
+          } else {
+            this.pickingNext[0].position.z = point.z;
+          }
         } else {
-          this.pickingNext[0].position.z = point.z;
-        }
-      } else {
-        if (this.pickingPre[1]) {
-          this.pickingPre[0].position.x = point.x;
-        } else {
-          this.pickingPre[0].position.z = point.z;
+          if (this.pickingPre[1]) {
+            this.pickingPre[0].position.x = point.x;
+          } else {
+            this.pickingPre[0].position.z = point.z;
+          }
         }
       }
       this.drawLine();
     };
 
     this.updatePointKey();
+    this.broken = broken || false;
   }
   onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
     let funMap: {
-      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+      [key: string]: [string, (value: any) => void, () => any, any[]?];
     } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
+      checker_broken: [
+        "折线",
+        (value) => (this.broken = value),
+        () => this.broken,
+      ],
+      checker_dash: ["虚线", (value) => (this.dash = value), () => this.dash],
       color: [
         "颜色",
         (value) => {
@@ -282,9 +304,16 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   }
 
   reGenrate() {
-    let init = caculatePoints(this.start, this.end);
-    this.remove(...this.pointArray);
-    this.pointArray = init.map((v) => new flowLinePoint(this, v));
+    let init = this.broken
+      ? caculatePoints(this.start, this.end)
+      : [
+          new THREE.Vector3().copy(this.start.position),
+          new THREE.Vector3().copy(this.end.position),
+        ];
+    this.pointArray && this.remove(...this.pointArray);
+    this.pointArray = this.broken
+      ? init.map((v) => new flowLinePoint(this, v))
+      : [];
     this.drawLine();
     this.dashManager.restore(this.curve);
   }
@@ -327,11 +356,28 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   get stateSteps() {
     return this._stateSteps;
   }
+
+  set broken(value) {
+    this._broken = value;
+    this.reGenrate();
+  }
+  get broken() {
+    return this._broken;
+  }
+
+  set dash(value) {
+    this._dash = value;
+  }
+  get dash() {
+    return this._dash;
+  }
+
   toADGEJSON() {
     let ret: any = {};
     ret.type = "Line";
     ret.color = this.color;
     ret.flowUUID = this.flowUUID;
+    ret.editorID = this.editorID;
     ret.stateSteps = btoa(JSON.stringify(this.stateSteps));
     ret.dashLength = this.dashManager.properties().dashLength;
     ret.startID = this.start.uuid;
@@ -346,6 +392,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   fromADGEJSON(json: any) {
     this.color = json.color;
     json.flowUUID && (this.flowUUID = json.flowUUID);
+    json.editorID && (this.editorID = json.editorID);
     json.stateSteps && (this.stateSteps = JSON.parse(atob(json.stateSteps)));
     this.dashManager.changeProperty(+json.dashLength);
     this.remove(...this.pointArray);
