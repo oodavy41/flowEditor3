@@ -5,3 +5,5 @@ dist/*
 .gitignore
 dist_raw/flowEdit_white_c/main.js
 built/*
+README.html
+README.pdf
