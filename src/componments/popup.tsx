@@ -8,6 +8,7 @@ interface popupIF {
   info?: { status: string; title: string; content: string; url: string };
   position?: number[];
   onClose?: () => void;
+  displayInView?: boolean;
 }
 interface popupState {
   poping: boolean;
@@ -42,7 +43,7 @@ export default class popup extends React.Component<popupIF, popupState> {
     );
   }
   render() {
-    let { info } = this.props;
+    let { info, displayInView } = this.props;
     if (this.lastPopping && info) {
       let { status, title, content, url } = info;
       let statusMap: { [key: string]: string } = {
@@ -70,9 +71,7 @@ export default class popup extends React.Component<popupIF, popupState> {
           标题:{title}
           <hr></hr>
           <p>{content}</p>
-          <p>
-            <a href={url}>立即查看</a>
-          </p>
+          {url && <p>{displayInView ? <a href={url}>链接</a> : url}</p>}
         </div>
       );
     } else return <></>;

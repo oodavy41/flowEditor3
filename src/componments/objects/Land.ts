@@ -1,8 +1,11 @@
 import * as THREE from "three";
+import _ from "lodash";
 
 import flowIF from "./flowIFs";
 import { OBJ_PROP_ACT } from "../../GLOBAL";
 
+let temp_pickingCoord = [0, 0];
+let temp_objCoord = [0, 0];
 export default class Land extends THREE.Mesh implements flowIF {
   private _color: string;
   private _sizeX: number;
@@ -10,6 +13,7 @@ export default class Land extends THREE.Mesh implements flowIF {
   flowUUID: string;
   isPicked: boolean;
   isHoving: boolean;
+  afterPickFlag: boolean;
   private _isBlooming: boolean;
   lands: Land[];
   onClick: (raycaster?: THREE.Raycaster) => void;
@@ -21,6 +25,7 @@ export default class Land extends THREE.Mesh implements flowIF {
     raycaster?: THREE.Raycaster
   ) => void;
   editorID: string;
+  configToPush: { [key: string]: any } = {};
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
 
   constructor(
@@ -51,9 +56,11 @@ export default class Land extends THREE.Mesh implements flowIF {
 
     this.isPicked = false;
     this.isHoving = false;
+    this.afterPickFlag = false;
     this._isBlooming = false;
     this.onClick = (raycaster) => {
       this.isPicked = true;
+      this.afterPickFlag = true;
     };
     this.offClick = () => {
       this.isPicked = false;
@@ -61,6 +68,7 @@ export default class Land extends THREE.Mesh implements flowIF {
         this.sizeX,
         this.sizeZ,
         `${this.position.x},${this.position.z}`,
+        true,
       ]);
     };
     this.switchLayer = (layer, flag) => {
@@ -78,7 +86,17 @@ export default class Land extends THREE.Mesh implements flowIF {
         this.sizeX = Math.abs(point.x - parentLocation.x) * 2;
         this.sizeZ = Math.abs(point.z - parentLocation.z) * 2;
       } else {
-        this.position.set(point.x, this.position.y, point.z);
+        if (this.afterPickFlag) {
+          temp_pickingCoord = [point.x, point.z];
+          temp_objCoord = [this.position.x, this.position.z];
+          this.afterPickFlag = false;
+        } else {
+          this.position.set(
+            temp_objCoord[0] + point.x - temp_pickingCoord[0],
+            this.position.y,
+            temp_objCoord[1] + point.z - temp_pickingCoord[1]
+          );
+        }
       }
     };
   }
@@ -86,7 +104,8 @@ export default class Land extends THREE.Mesh implements flowIF {
   onUpdateData(
     propName: string | string[],
     action: OBJ_PROP_ACT,
-    value?: any | any[]
+    value?: any | any[],
+    selfUpdate = true
   ) {
     let funMap: {
       [key: string]: [string, (value: any) => void, () => any, any[]?];
@@ -156,31 +175,37 @@ export default class Land extends THREE.Mesh implements flowIF {
     if (action === OBJ_PROP_ACT.KEYS) return Object.keys(funMap);
     else if (typeof propName !== "string") {
       if (Array.isArray(value) && action === OBJ_PROP_ACT.SET) {
-        let config: { [key: string]: any } = {};
         propName.forEach((key, index) => {
-          if (funMap[key]) config[key] = value[index];
+          if (funMap[key] && funMap[key][OBJ_PROP_ACT.GET] !== value[index]) {
+            this.configToPush[key] = value[index];
+            selfUpdate && this.selfConfigUpdateDeb();
+          }
         });
-        if (this.selfConfigUpdate && this.editorID) {
-          this.selfConfigUpdate(config, this.editorID, "flow3DLand");
-        }
       }
     } else if (funMap[propName]) {
       if (action === OBJ_PROP_ACT.NAME || action === OBJ_PROP_ACT.LIST_NODES)
         return funMap[propName][action];
       else if (action === OBJ_PROP_ACT.SET) {
-        if (funMap[propName][OBJ_PROP_ACT.GET]() !== value) {
+        if (
+          propName.indexOf("position") !== -1 ||
+          funMap[propName][OBJ_PROP_ACT.GET]() !== value
+        ) {
           funMap[propName][action](value);
-          if (this.selfConfigUpdate && this.editorID) {
-            let config: { [key: string]: any } = {};
-            config[propName] = value;
-            this.selfConfigUpdate(config, this.editorID, "flow3DLand");
-          }
+          this.configToPush[propName] = value;
+          selfUpdate && this.selfConfigUpdateDeb();
         }
       } else {
         return funMap[propName][action] ? funMap[propName][action]() : null;
       }
     }
   }
+
+  selfConfigUpdateDeb = _.debounce(() => {
+    if (this.selfConfigUpdate && this.editorID) {
+      this.selfConfigUpdate(this.configToPush, this.editorID, "flow3DLand");
+      this.configToPush = {};
+    }
+  }, 1000);
 
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);

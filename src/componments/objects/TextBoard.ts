@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import Events from "events";
+import _ from "lodash";
 
 import { CAMERA_STATE, EventEmitter, OBJ_PROP_ACT } from "../../GLOBAL";
 
@@ -7,7 +7,6 @@ import flowIF from "./flowIFs";
 import FragFactory from "../textRenderer/fragFactory";
 import TextBoard from "../textRenderer/board";
 
-let afterPickFlag = false;
 let temp_pickingCoord = [0, 0];
 let temp_objCoord = [0, 0];
 
@@ -16,6 +15,7 @@ export default class TextNode extends TextBoard implements flowIF {
   flowUUID: string;
   isPicked: boolean;
   isHoving: boolean;
+  afterPickFlag: boolean;
   _rotateWithCamera: boolean;
   updateText: () => void;
   onClick: (raycaster?: THREE.Raycaster) => void;
@@ -23,6 +23,7 @@ export default class TextNode extends TextBoard implements flowIF {
   switchLayer: (layer: number, flag: boolean) => void;
   onMouseMove: (point: THREE.Vector3) => void;
   editorID: string;
+  configToPush: { [key: string]: any } = {};
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
 
   constructor(
@@ -43,15 +44,21 @@ export default class TextNode extends TextBoard implements flowIF {
     // this.rotateZ(Math.PI / 2);
 
     this.isPicked = false;
+    this.afterPickFlag = false;
     this.isHoving = false;
     this._rotateWithCamera = false;
     this.onClick = () => {
       this.isPicked = true;
-      afterPickFlag = true;
+      this.afterPickFlag = true;
     };
     this.offClick = () => {
       this.isPicked = false;
-      this.onUpdateData("position", OBJ_PROP_ACT.SET, `${this.position.x},${this.position.z}`);
+      this.onUpdateData(
+        "position",
+        OBJ_PROP_ACT.SET,
+        `${this.position.x},${this.position.z}`,
+        true
+      );
     };
 
     this.switchLayer = (layer, flag) => {
@@ -63,10 +70,10 @@ export default class TextNode extends TextBoard implements flowIF {
       }
     };
     this.onMouseMove = (point) => {
-      if (afterPickFlag) {
+      if (this.afterPickFlag) {
         temp_pickingCoord = [point.x, point.z];
         temp_objCoord = [this.position.x, this.position.z];
-        afterPickFlag = false;
+        this.afterPickFlag = false;
       } else {
         this.position.set(
           temp_objCoord[0] + point.x - temp_pickingCoord[0],
@@ -77,9 +84,14 @@ export default class TextNode extends TextBoard implements flowIF {
     };
   }
 
-  onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
+  onUpdateData(
+    propName: string,
+    action: OBJ_PROP_ACT,
+    value?: any,
+    selfUpdate = true
+  ) {
     let funMap: {
-      [key: string]: [string, (value: any) => void, ()=>any, any[]?];
+      [key: string]: [string, (value: any) => void, () => any, any[]?];
     } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       color: [
@@ -87,7 +99,7 @@ export default class TextNode extends TextBoard implements flowIF {
         (value) => {
           this.color = value;
         },
-        ()=>this.color
+        () => this.color,
       ],
       name: [
         "文字",
@@ -95,7 +107,7 @@ export default class TextNode extends TextBoard implements flowIF {
           this.text = value;
           this.name = value;
         },
-        ()=>this.text
+        () => this.text,
       ],
       number: [
         "层级",
@@ -120,7 +132,7 @@ export default class TextNode extends TextBoard implements flowIF {
             this.position.z = +pos[3];
           }
         },
-        () => this.position.x,
+        () => `${this.position.x},${this.position.z}`,
       ],
       list_rotateX: [
         "X旋转",
@@ -170,19 +182,26 @@ export default class TextNode extends TextBoard implements flowIF {
       if (action === OBJ_PROP_ACT.NAME || action === OBJ_PROP_ACT.LIST_NODES)
         return funMap[propName][action];
       else if (action === OBJ_PROP_ACT.SET) {
-        if (funMap[propName][OBJ_PROP_ACT.GET]() !== value) {
+        if (
+          propName.indexOf("position") !== -1 ||
+          funMap[propName][OBJ_PROP_ACT.GET]() !== value
+        ) {
           funMap[propName][action](value);
-          if (this.selfConfigUpdate && this.editorID) {
-            let config: { [key: string]: any } = {};
-            config[propName] = value;
-            this.selfConfigUpdate(config, this.editorID, "flow3DText");
-          }
+          this.configToPush[propName] = value;
+          selfUpdate && this.selfConfigUpdateDeb();
         }
       } else {
         return funMap[propName][action] ? funMap[propName][action]() : null;
       }
     }
   }
+  selfConfigUpdateDeb = _.debounce(() => {
+    if (this.selfConfigUpdate && this.editorID) {
+      this.selfConfigUpdate(this.configToPush, this.editorID, "flow3DText");
+      this.configToPush = {};
+    }
+  }, 1000);
+
   get rotateWithCamera() {
     return this._rotateWithCamera;
   }

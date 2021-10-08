@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import _ from "lodash";
 import { StyleNode, OBJ_PROP_ACT } from "../../GLOBAL";
 
 import flowIF, { dataSetIF } from "./flowIFs";
@@ -58,6 +59,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   ) => void;
   drawLine: () => void;
   updateFlowLine: (fromStart: boolean, object: flowNode) => void;
+  configToPush: { [key: string]: any } = {};
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   editorID?: string;
   constructor(
@@ -67,15 +69,24 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     color: string,
     broken = true
   ) {
-    let init = broken
-      ? caculatePoints(start, end)
-      : [
-          new THREE.Vector3().copy(start.position),
-          new THREE.Vector3().copy(end.position),
-        ];
-    let curve = new THREE.CatmullRomCurve3(init, false, "catmullrom", 0.01);
     super(
-      new THREE.TubeGeometry(curve, 128, RADIUS, 8, false),
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3(
+          broken
+            ? caculatePoints(start, end)
+            : [
+                new THREE.Vector3().copy(start.position),
+                new THREE.Vector3().copy(end.position),
+              ],
+          false,
+          "catmullrom",
+          0.01
+        ),
+        128,
+        RADIUS,
+        8,
+        false
+      ),
       new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
@@ -83,6 +94,13 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
         opacity: 0,
       })
     );
+    let init = broken
+      ? caculatePoints(start, end)
+      : [
+          new THREE.Vector3().copy(start.position),
+          new THREE.Vector3().copy(end.position),
+        ];
+    let curve = new THREE.CatmullRomCurve3(init, false, "catmullrom", 0.01);
     this.start = start;
     this.end = end;
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
@@ -158,21 +176,31 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.offNodeClick = () => {
       this.pickingNext = [null, null];
       this.pickingPre = [null, null];
+      this.drawLine();
       this.dashManager.restore(this.curve);
     };
     this.onMouseMove = (point) => {
       if (this.picking) {
         this.picking.onMouseMove(point);
         if (this.broken) {
-          if (this.pickingPre[1]) {
-            this.pickingPre[0].position.x = point.x;
-          } else {
-            this.pickingPre[0].position.z = point.z;
-          }
-          if (this.pickingNext[1]) {
-            this.pickingNext[0].position.x = point.x;
-          } else {
-            this.pickingNext[0].position.z = point.z;
+          try {
+            if (this.pickingPre[1]) {
+              this.pickingPre[0].position.x = point.x;
+            } else {
+              this.pickingPre[0].position.z = point.z;
+            }
+            if (this.pickingNext[1]) {
+              this.pickingNext[0].position.x = point.x;
+            } else {
+              this.pickingNext[0].position.z = point.z;
+            }
+          } catch (e) {
+            console.error(
+              "LINE drag error:",
+              e,
+              this.pickingPre,
+              this.pickingNext
+            );
           }
         }
         this.drawLine();
@@ -238,7 +266,12 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.updatePointKey();
     this.broken = broken || false;
   }
-  onUpdateData(propName: string, action: OBJ_PROP_ACT, value?: any) {
+  onUpdateData(
+    propName: string,
+    action: OBJ_PROP_ACT,
+    value?: any,
+    selfUpdate = true
+  ) {
     let funMap: {
       [key: string]: [string, (value: any) => void, () => any, any[]?];
     } = {
@@ -277,17 +310,20 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
       else if (action === OBJ_PROP_ACT.SET) {
         if (funMap[propName][OBJ_PROP_ACT.GET]() !== value) {
           funMap[propName][action](value);
-          if (this.selfConfigUpdate && this.editorID) {
-            let config: { [key: string]: any } = {};
-            config[propName] = value;
-            this.selfConfigUpdate(config, this.editorID);
-          }
+          this.configToPush[propName] = value;
+          selfUpdate && this.selfConfigUpdateDeb();
         }
       } else {
         return funMap[propName][action] ? funMap[propName][action]() : null;
       }
     }
   }
+  selfConfigUpdateDeb = _.debounce(() => {
+    if (this.selfConfigUpdate && this.editorID) {
+      this.selfConfigUpdate(this.configToPush, this.editorID);
+      this.configToPush = {};
+    }
+  }, 1000);
 
   updateData() {
     if (!this.data) return;

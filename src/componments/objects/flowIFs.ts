@@ -15,9 +15,10 @@ export default interface flowIF {
   onUpdateData?: (
     propName: string,
     action: OBJ_PROP_ACT,
-    value?: any
+    value?: any,
+    selfUpdate?: boolean
   ) => any | void;
-  configToPush: { [key: string]: any };
+  configToPush?: { [key: string]: any };
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   onMouseMove?: (
     point: THREE.Vector3,

@@ -21,13 +21,23 @@ interface MainIf {
       sceneLight: number;
     };
   };
+  develop: boolean;
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   selfNodeSelect?: (id: string) => void;
   selfNodeAdd?: (role: string, type: string, name: string) => string;
+  selfNodeDelete?: (id: string, type: string) => void;
+  selfNodeEdit?: (id: string, type: string, name: string) => void;
 }
 export default function Comp(props: MainIf) {
   let newProps;
-  let { option, selfConfigUpdate, selfNodeSelect, selfNodeAdd } = props;
+  let {
+    option,
+    selfConfigUpdate,
+    selfNodeSelect,
+    selfNodeAdd,
+    selfNodeDelete,
+    selfNodeEdit,
+  } = props;
 
   newProps = {
     ...props,
@@ -63,7 +73,7 @@ export default function Comp(props: MainIf) {
             tileType: "flow3DNode",
             value: 0,
             config: undefined,
-            message: { status: "red", title: "t", content: "c", url: "r" },
+            // message: { status: "red", title: "t", content: "c", url: "r" },
           },
         ],
     config: option ? { ...option.config } : undefined,
@@ -73,15 +83,24 @@ export default function Comp(props: MainIf) {
             console.log("SELFUPDATE", config, id);
             selfConfigUpdate(config, id, tileType);
           }
-        : undefined,
+        : (config: any, id?: string, tileType?: string) => {},
     selfNodeSelect:
       selfNodeSelect && typeof selfNodeSelect === "function"
         ? (id: string) => selfNodeSelect(id)
-        : undefined,
+        : (id: string) => {},
     selfNodeAdd:
       selfNodeAdd && typeof selfNodeAdd === "function"
         ? (type: string, name: string) => selfNodeAdd("flowStyle", type, name)
-        : undefined,
+        : (type: string, name: string) => "",
+    selfNodeDelete:
+      selfNodeDelete && typeof selfNodeDelete === "function"
+        ? (id: string, type: string) => selfNodeDelete(id, type)
+        : (id: string, type: string) => "",
+    selfNodeEdit:
+      selfNodeEdit && typeof selfNodeEdit === "function"
+        ? (id: string, type: string, name: string) =>
+            selfNodeEdit(id, type, name)
+        : (id: string, type: string, name: string) => "",
   };
   return <MainPlane {...newProps} />;
 }

@@ -10,7 +10,7 @@ const publicPathName = "static";
 const outPutPathName = "js";
 const outResoucePathName = "js";
 
-const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 7000;
+const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 9011;
 const HOST = process.env.HOST || "localhost";
 
 module.exports = {

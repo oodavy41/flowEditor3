@@ -16,7 +16,7 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -24,9 +24,9 @@
             "title": "网格颜色",
             "type": "color",
             "required": true,
-            "default": "rgba(255, 255, 255, 1)",
+            "default": "rgba(153, 153, 153, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -34,7 +34,8 @@
             "title": "相机高度",
             "type": "inputNumber",
             "required": true,
-            "default": 4000,
+            "default": 2000,
+            "step": 100,
             "min": 500,
             "max": 9000
           },
@@ -43,16 +44,18 @@
             "title": "阴影强度",
             "type": "inputNumber",
             "required": true,
-            "default": 0.5,
-            "min": 0,
+            "default": 0.1,
+            "step": 0.1,
+            "min": 0.1,
             "max": 1
           },
           {
             "field": "import",
-            "title": "导入",
+            "title": "场景数据",
             "type": "text",
             "required": true,
             "readOnly": true,
+            "description": "ctrl+A全选，仅用于导出视图",
             "default": ""
           }
         ]
@@ -68,9 +71,9 @@
             "title": "颜色",
             "type": "color",
             "required": true,
-            "default": "rgba(255, 255, 255, 1)",
+            "default": "rgba(246, 246, 239, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -78,9 +81,9 @@
             "title": "描边颜色",
             "type": "color",
             "required": true,
-            "default": "rgba(255, 255, 255, 1)",
+            "default": "rgba(136, 136, 136, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -115,11 +118,21 @@
             "default": "BOX"
           },
           {
-            "field": "name",
-            "title": "名称",
-            "type": "text",
+            "field": "color_halo",
+            "title": "光柱颜色",
+            "type": "color",
             "required": true,
-            "default": "name"
+            "default": "rgba(150, 150, 210, 1)",
+            "style": {
+              "fieldWidth": 200
+            }
+          },
+          {
+            "field": "checker_halo",
+            "title": "光柱",
+            "type": "switch",
+            "required": true,
+            "default": false
           },
           {
             "field": "model",
@@ -147,6 +160,7 @@
             "type": "inputNumber",
             "required": true,
             "default": 0,
+            "step": 0.1,
             "min": 0,
             "max": 3.1415
           },
@@ -169,6 +183,7 @@
             "title": "x缩放",
             "type": "inputNumber",
             "required": true,
+            "step": 0.1,
             "default": 1
           },
           {
@@ -176,6 +191,7 @@
             "title": "y缩放",
             "type": "inputNumber",
             "required": true,
+            "step": 0.1,
             "default": 1
           },
           {
@@ -183,6 +199,7 @@
             "title": "z缩放",
             "type": "inputNumber",
             "required": true,
+            "step": 0.1,
             "default": 1
           },
           {
@@ -191,6 +208,7 @@
             "type": "inputNumber",
             "required": true,
             "default": 1,
+            "step": 0.1,
             "min": 0
           },
           {
@@ -199,14 +217,7 @@
             "type": "inputNumber",
             "required": true,
             "default": 1,
-            "min": 0
-          },
-          {
-            "field": "number_icon_rotateZ",
-            "title": "图标旋转",
-            "type": "inputNumber",
-            "required": true,
-            "default": 0,
+            "step": 0.1,
             "min": 0
           },
           {
@@ -243,7 +254,7 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -253,7 +264,7 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -263,7 +274,7 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           },
           {
@@ -273,7 +284,7 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200
             }
           }
         ]
@@ -289,10 +300,7 @@
             "title": "颜色",
             "type": "color",
             "required": true,
-            "default": "rgba(255, 255, 255, 1)",
-            "style": {
-              "fieldWidth": 100
-            }
+            "default": "rgba(0, 0, 0, 1)"
           },
           {
             "field": "checker_broken",
@@ -307,7 +315,11 @@
             "type": "inputNumber",
             "required": true,
             "default": 10,
-            "min": 1
+            "min": 1,
+            "style": {
+              "fieldWidth": 200,
+              "labelWidth": 80
+            }
           }
         ]
       }
@@ -322,10 +334,7 @@
             "title": "颜色",
             "type": "color",
             "required": true,
-            "default": "rgba(255, 255, 255, 1)",
-            "style": {
-              "fieldWidth": 100
-            }
+            "default": "rgba(136, 136, 136, 1)"
           },
           {
             "field": "number_icon_rotateZ",
@@ -333,6 +342,7 @@
             "type": "inputNumber",
             "required": true,
             "default": 0,
+            "step": 0.1,
             "min": 0,
             "max": 3.14
           },
@@ -348,16 +358,25 @@
             "title": "透明度",
             "type": "inputNumber",
             "required": true,
-            "default": 0.7,
+            "default": 0.3,
+            "step": 0.1,
             "max": 1,
-            "min": 0
+            "min": 0,
+            "style": {
+              "fieldWidth": 200,
+              "labelWidth": 80
+            }
           },
           {
             "field": "image",
             "title": "贴图导入",
             "type": "upload",
             "accept": "image/*",
-            "required": true
+            "required": true,
+            "style": {
+              "fieldWidth": 200,
+              "labelWidth": 80
+            }
           },
           {
             "field": "position",
@@ -397,7 +416,8 @@
             "required": true,
             "default": "rgba(255, 255, 255, 1)",
             "style": {
-              "fieldWidth": 100
+              "fieldWidth": 200,
+              "labelWidth": 80
             }
           },
           {
