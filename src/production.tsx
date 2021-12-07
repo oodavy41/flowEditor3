@@ -18,6 +18,7 @@ interface MainIf {
       gridColor: string;
       import: string;
       cameraHeight: number;
+      modelGroup: File;
       sceneLight: number;
     };
   };
@@ -83,24 +84,24 @@ export default function Comp(props: MainIf) {
             console.log("SELFUPDATE", config, id);
             selfConfigUpdate(config, id, tileType);
           }
-        : (config: any, id?: string, tileType?: string) => {},
+        : undefined,
     selfNodeSelect:
       selfNodeSelect && typeof selfNodeSelect === "function"
         ? (id: string) => selfNodeSelect(id)
-        : (id: string) => {},
+        : undefined,
     selfNodeAdd:
       selfNodeAdd && typeof selfNodeAdd === "function"
         ? (type: string, name: string) => selfNodeAdd("flowStyle", type, name)
-        : (type: string, name: string) => "",
+        : undefined,
     selfNodeDelete:
       selfNodeDelete && typeof selfNodeDelete === "function"
         ? (id: string, type: string) => selfNodeDelete(id, type)
-        : (id: string, type: string) => "",
+        : undefined,
     selfNodeEdit:
       selfNodeEdit && typeof selfNodeEdit === "function"
         ? (id: string, type: string, name: string) =>
             selfNodeEdit(id, type, name)
-        : (id: string, type: string, name: string) => "",
+        : undefined,
   };
   return <MainPlane {...newProps} />;
 }

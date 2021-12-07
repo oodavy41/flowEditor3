@@ -11,6 +11,9 @@ import flowIcon from "./Land";
 import TextBoard from "./TextBoard";
 import FragFactory from "../textRenderer/fragFactory";
 import { BufferGeometry } from "three";
+import ShaderIF from "../shaders/shadeIF";
+import shaderList from "../shaders/shaderList";
+import StarryMaskMat from "../shaders/StarryMaskMat";
 
 const SIZE = 40;
 const hideOpacity = 0.2;
@@ -70,7 +73,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       new THREE.BoxGeometry(SIZE, 2 * SIZE, SIZE),
       new THREE.MeshBasicMaterial({
         transparent: true,
-        depthWrite: false,
+        depthTest: false,
         opacity: 0,
       })
     );
@@ -78,6 +81,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.pickingGroupMember = [];
     this.editorID = editorID;
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
+    this.groupID = "";
     this.stateSteps = [];
     this._color = color;
     this._lineColor = lineColor || "#888";
@@ -91,6 +95,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         transparent: true,
       })
     );
+    this.mainMesh.geometry.computeVertexNormals();
 
     const edges = new THREE.EdgesGeometry(this.mainMesh.geometry);
     const line = new THREE.LineSegments(
@@ -158,7 +163,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       new THREE.MeshBasicMaterial({
         color: "#fff",
         transparent: true,
-        depthWrite: false,
+        depthTest: false,
         opacity: 0.8,
       })
     );
@@ -187,13 +192,15 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.afterPickFlag = false;
     this.onClick = () => {
       this.onGroupClick();
-      this.scene.traverse((obj) => {
-        if (obj instanceof flowNode && obj.groupID === this.groupID) {
-          obj.onGroupClick();
-          this.pickingGroupMember.push(obj);
-        }
-      });
-      console.log(this.pickingGroupMember, this.stateSteps, this.data);
+      if (this.groupID) {
+        this.scene.traverse((obj) => {
+          if (obj instanceof flowNode && obj.groupID === this.groupID) {
+            obj.onGroupClick();
+            this.pickingGroupMember.push(obj);
+          }
+        });
+        console.log(this.pickingGroupMember, this.stateSteps, this.data);
+      }
     };
     this.onGroupClick = () => {
       this.isPicked = true;
@@ -250,9 +257,13 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     };
   }
 
+  tick(delta: number, t: number) {
+    if (this.mainMesh.material instanceof ShaderIF) {
+      this.mainMesh.material.setTime(t);
+    }
+  }
+
   setHaloColor(value: string) {
-    console.log(value);
-    value = "rgba(255,155,255)";
     let reg = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/;
     if (reg.test(value)) {
       let [raw, r, g, b, a] = reg.exec(value);
@@ -269,6 +280,39 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         "color",
         new THREE.BufferAttribute(new Float32Array(colorRaw), 4)
       );
+    }
+  }
+
+  getMatAttributes() {
+    if (this.mainMesh.material instanceof ShaderIF) {
+      let uniforms = (this.mainMesh.material as ShaderIF).getUniformsList();
+      return uniforms.map((_: { label: string; key: string; type: any }) => {
+        return {
+          label: _.label,
+          key: _.key,
+          type: _.type,
+          value:
+            _.key === "color"
+              ? "0x" +
+                (
+                  (this.mainMesh.material as ShaderIF).getUniform(
+                    _.key
+                  ) as THREE.Color
+                ).getHexString()
+              : (this.mainMesh.material as ShaderIF).getUniform(_.key),
+        };
+      });
+    } else {
+      return [
+        {
+          label: "颜色",
+          key: "color",
+          type: "color",
+          value: (
+            this.mainMesh.material as THREE.MeshLambertMaterial
+          ).color.getHexString(),
+        },
+      ];
     }
   }
 
@@ -306,13 +350,6 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       [key: string]: [string, (value: any) => void, () => any, any[]?];
     } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
-      color: [
-        "颜色",
-        (value) => {
-          this.color = value;
-        },
-        () => this.color,
-      ],
       list_type: [
         "形状",
         (value) => {
@@ -374,6 +411,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
           if (value && value instanceof File) {
             new OBJLoader().load(URL.createObjectURL(value), (obj) => {
               this.mainMesh.geometry = (obj.children[0] as THREE.Mesh).geometry;
+              this.mainMesh.geometry.computeVertexNormals();
               this.transToGeo();
               this.line.geometry = new THREE.EdgesGeometry(
                 this.mainMesh.geometry
@@ -466,6 +504,80 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         (value) => (this.stateSteps = value),
         () => this.stateSteps,
       ],
+      list_mat: [
+        "材质类型",
+        (pickingMat) => {
+          if (pickingMat !== (typeof this.mainMesh.material).toString()) {
+            let { creator } = shaderList.find((mat) => mat.name === pickingMat);
+            let oldOpacity = (this.mainMesh.material as THREE.Material).opacity;
+            this.mainMesh.material = new creator({
+              transparent: true,
+              texture: undefined,
+            });
+            this.mainMesh.material.opacity = oldOpacity;
+            this.mainMesh.material.needsUpdate = true;
+            this.configToPush["attrSet"] = this.getMatAttributes();
+          }
+        },
+        () =>
+          shaderList.find((matNode) => {
+            if (this.mainMesh.material instanceof matNode.creator) {
+              return true;
+            }
+          }).name,
+        shaderList.map((matNode) => ({
+          key: matNode.name,
+          value: matNode.name,
+        })),
+      ],
+      attrSet: [
+        "材质属性",
+        (
+          data: {
+            label: string;
+            key: string;
+            type: string;
+            value: string;
+          }[]
+        ) => {
+          data.forEach((_: { type: string; key: string; value: any }) => {
+            if (_.type === "color") {
+              (
+                this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+              ).color = new THREE.Color(_.value + "");
+            } else if (this.mainMesh.material instanceof ShaderIF) {
+              if (_.type === "image") {
+                if (_.value && _.value instanceof File) {
+                  let texLoader = new THREE.TextureLoader().load(
+                    URL.createObjectURL(_.value),
+                    (texture) => {
+                      let oldUniforms = this.getMatAttributes();
+                      this.mainMesh.material = new StarryMaskMat({ texture });
+                      oldUniforms.forEach(
+                        ({ key, value }) =>
+                          typeof value === "number" &&
+                          (this.mainMesh.material as StarryMaskMat).setUniform(
+                            key,
+                            value
+                          )
+                      );
+                    }
+                  );
+                  texLoader.wrapS = THREE.RepeatWrapping;
+                  texLoader.wrapT = THREE.RepeatWrapping;
+                }
+              } else {
+                (this.mainMesh.material as ShaderIF).setUniform(_.key, _.value);
+              }
+            } else {
+              console.error("ShaderSet Invailed", _.type, _.key, _.value);
+            }
+          });
+        },
+        () => {
+          return this.getMatAttributes();
+        },
+      ],
     };
     if (action === OBJ_PROP_ACT.KEYS) return Object.keys(funMap);
     else if (funMap[propName]) {
@@ -477,8 +589,10 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
           funMap[propName][OBJ_PROP_ACT.GET]() !== value
         ) {
           funMap[propName][action](value);
-          this.configToPush[propName] = value;
-          selfUpdate && this.selfConfigUpdateDeb();
+          if (selfUpdate) {
+            this.configToPush[propName] = value;
+            this.selfConfigUpdateDeb();
+          }
         }
       } else {
         return funMap[propName][action] ? funMap[propName][action]() : null;
@@ -504,7 +618,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     steps.length > 2 && steps.sort((a, b) => a.cutPoint - b.cutPoint);
     let k = 0;
     while (k !== steps.length && this.data > steps[k].cutPoint) k++;
-    (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(
+    (this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF).color.set(
       steps[k - 1].color
     );
     (this.line.material as THREE.LineBasicMaterial).color.set(
@@ -514,7 +628,9 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
 
   set color(value) {
     if (this.mainMesh.material) {
-      (this.mainMesh.material as THREE.MeshBasicMaterial).color.set(value);
+      (
+        this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+      ).color.set(value);
       this._color = value;
     }
   }
@@ -615,6 +731,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     return ret;
   }
   fromADGEJSON(json: any) {
+    console.log("nodeLoadStart", json);
     this.text = json.name;
     json.flowUUID && (this.flowUUID = json.flowUUID);
     json.stateSteps && (this.stateSteps = JSON.parse(atob(json.stateSteps)));
@@ -626,6 +743,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       this.mainMesh.scale.copy((obj as THREE.Mesh).scale);
       this.mainMesh.position.copy((obj as THREE.Mesh).position);
       this.line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
+      this.mainMesh.geometry.computeVertexNormals();
     });
     new THREE.ObjectLoader().parse(json.iconMesh, (obj) => {
       this.remove(this.iconPlane);
@@ -644,6 +762,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.rotation.fromArray(json.matrix[2]);
     this.editorID = json.editorID;
     this.groupID = json.groupID;
+    console.log("nodeLoadEnd", json);
   }
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);

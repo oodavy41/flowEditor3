@@ -2,6 +2,7 @@ import React from "react";
 import flowIF, { dataSetIF } from "./objects/flowIFs";
 import StepStyleEditor from "./stepStyleEditor";
 import { OBJ_PROP_ACT } from "../GLOBAL";
+import UniformSetEditor from "./uniformSetEditor";
 
 interface metaPanelIF {
   scene: THREE.Scene;
@@ -13,6 +14,7 @@ interface metaPanelIF {
 
 export default function MetaPanel(props: metaPanelIF) {
   let { scene, objArray, compModel, canvasUpdater, pickedUpdater } = props;
+  let [renewFlag, renewer] = React.useState(0);
   let nodeFun: {
     [key: string]: (
       updateObj: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D,
@@ -27,7 +29,7 @@ export default function MetaPanel(props: metaPanelIF) {
         {updateLabel || "颜色"}:
         <input
           type="color"
-          defaultValue={defaultVaule}
+          defaultValue={"#" + defaultVaule.toString(16)}
           onChange={(event) => updateFun(event.target.value)}
         />
       </div>
@@ -125,14 +127,22 @@ export default function MetaPanel(props: metaPanelIF) {
         onChange={(newSteps) => updateFun(newSteps)}
       ></StepStyleEditor>
     ),
+    attrSet: (updateObj, updateFun, updateLabel, defaultValue) => (
+      <UniformSetEditor
+        uniformList={defaultValue}
+        setFunction={(newUniforms) => updateFun(newUniforms)}
+      ></UniformSetEditor>
+    ),
   };
   let pickedDom: JSX.Element[] = [];
   if (pickedUpdater) {
     pickedUpdater.onUpdateData("", OBJ_PROP_ACT.KEYS).forEach((key: string) => {
       let updateObj = pickedUpdater;
       let updateLabel = pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.NAME);
-      let updateFun = (value:any) =>
+      let updateFun = (value: any) => {
+        renewer(Math.random());
         pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.SET, value);
+      };
       let defaultValue = pickedUpdater.onUpdateData(key, OBJ_PROP_ACT.GET);
       Object.keys(nodeFun).forEach((funKey) => {
         if (key.indexOf(funKey) > -1 && (!compModel || funKey === "label")) {

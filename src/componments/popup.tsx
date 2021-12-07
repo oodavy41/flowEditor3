@@ -71,7 +71,17 @@ export default class popup extends React.Component<popupIF, popupState> {
           标题:{title}
           <hr></hr>
           <p>{content}</p>
-          {url && <p>{displayInView ? <a href={url}>链接</a> : url}</p>}
+          {url && (
+            <p>
+              {displayInView ? (
+                <a href={url} target="_blank">
+                  链接
+                </a>
+              ) : (
+                url
+              )}
+            </p>
+          )}
         </div>
       );
     } else return <></>;

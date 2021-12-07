@@ -8,7 +8,7 @@ export default interface flowIF {
   editorID?: string;
   isPicked: boolean;
   isHoving: boolean;
-  tick?: (delta: number) => void;
+  tick?: (delta: number, time: number) => void;
   switchLayer?: (layer: number, flag: boolean) => void;
   onClick?: (raycaster?: THREE.Raycaster) => void;
   offClick?: (raycaster?: THREE.Raycaster) => void;

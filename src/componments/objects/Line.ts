@@ -2,9 +2,12 @@ import * as THREE from "three";
 import _ from "lodash";
 import { StyleNode, OBJ_PROP_ACT } from "../../GLOBAL";
 
+import DashTube from "./DashTube";
 import flowIF, { dataSetIF } from "./flowIFs";
 import flowNode from "./Node";
 import flowLinePoint from "./LinePoint";
+
+import LineShader from "./LineShader";
 
 const XFIRST = false;
 const hideOpacity = 0.2;
@@ -45,7 +48,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
   pickingPre: [flowLinePoint, boolean];
   pickingNext: [flowLinePoint, boolean];
   pointArray: flowLinePoint[];
-  dashManager: dashManagerType;
+  dashManager: ReturnType<typeof dashGenerator>;
   updatePointKey: () => void;
   onClick: (raycaster?: THREE.Raycaster) => void;
   offClick: () => void;
@@ -57,7 +60,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     event?: MouseEvent,
     raycaster?: THREE.Raycaster
   ) => void;
-  drawLine: () => void;
+  drawLine: (genDash?: boolean) => void;
   updateFlowLine: (fromStart: boolean, object: flowNode) => void;
   configToPush: { [key: string]: any } = {};
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
@@ -90,10 +93,11 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
       new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        depthWrite: false,
+        depthTest: false,
         opacity: 0,
       })
     );
+    this.renderOrder = -100;
     let init = broken
       ? caculatePoints(start, end)
       : [
@@ -106,9 +110,8 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.flowUUID = Math.floor(Math.random() * 0xffffff).toString(16);
     this.stateSteps = [];
     this.curve = curve;
-    let dashes = dashGenerator(curve, this, 10, 10, 10, color);
-    this.add(...dashes.dashes.map((d) => d.node));
-    this.dashManager = dashes;
+    this.dashManager = dashGenerator(this, 20, 15, 0.02, 0x000);
+    this.dashManager.genrate(this.curve);
 
     let mid1 = new flowLinePoint(this, init[1]),
       mid2 = new flowLinePoint(this, init[2]);
@@ -176,8 +179,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.offNodeClick = () => {
       this.pickingNext = [null, null];
       this.pickingPre = [null, null];
-      this.drawLine();
-      this.dashManager.restore(this.curve);
+      this.drawLine(true);
     };
     this.onMouseMove = (point) => {
       if (this.picking) {
@@ -219,7 +221,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
       }
     };
 
-    this.drawLine = () => {
+    this.drawLine = (genDash = false) => {
       this.updatePointKey();
       let curve = new THREE.CatmullRomCurve3(
         [this.start, ...this.pointArray, this.end].map((e) => {
@@ -241,6 +243,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
       );
       this.geometry.computeBoundingBox();
       this.curve = curve;
+      genDash && this.dashManager.genrate(curve);
     };
 
     this.updateFlowLine = (fromStart, object) => {
@@ -260,7 +263,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
           }
         }
       }
-      this.drawLine();
+      this.drawLine(true);
     };
 
     this.updatePointKey();
@@ -289,12 +292,26 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
         },
         () => this.color,
       ],
-      number: [
+      number_dashLength: [
         "虚线长度",
         (value) => {
-          this.dashManager.changeProperty(+value);
+          this.dashManager.changeProperty("dashLength", +value);
         },
         () => this.dashManager.properties().dashLength,
+      ],
+      number_dashSpace: [
+        "虚线间隔",
+        (value) => {
+          this.dashManager.changeProperty("dashSpace", +value);
+        },
+        () => this.dashManager.properties().dashSpace,
+      ],
+      number_speed: [
+        "流动速度",
+        (value) => {
+          this.dashManager.changeProperty("speed", +value);
+        },
+        () => this.dashManager.properties().speed,
       ],
       steps: [
         "数据状态",
@@ -350,12 +367,11 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     this.pointArray = this.broken
       ? init.map((v) => new flowLinePoint(this, v))
       : [];
-    this.drawLine();
-    this.dashManager.restore(this.curve);
+    this.drawLine(true);
   }
 
-  tick(delta: number) {
-    this.dashManager.tick(delta);
+  tick(delta: number, time: number) {
+    this.dashManager.tick(time);
   }
 
   set color(value) {
@@ -371,7 +387,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
 
   set hide(value) {
     this._hide = value;
-    this.dashManager.changeOpacity(value ? hideOpacity : 1);
+    this.dashManager.changeProperty("opacity", value ? hideOpacity : 1);
   }
   get hide() {
     return this._hide;
@@ -415,7 +431,7 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     ret.flowUUID = this.flowUUID;
     ret.editorID = this.editorID;
     ret.stateSteps = btoa(JSON.stringify(this.stateSteps));
-    ret.dashLength = this.dashManager.properties().dashLength;
+    ret.dashProperties = this.dashManager.toJSON();
     ret.startID = this.start.uuid;
     ret.endID = this.end.uuid;
     ret.pointArray = this.pointArray.map(({ position }) => [
@@ -430,14 +446,13 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
     json.flowUUID && (this.flowUUID = json.flowUUID);
     json.editorID && (this.editorID = json.editorID);
     json.stateSteps && (this.stateSteps = JSON.parse(atob(json.stateSteps)));
-    this.dashManager.changeProperty(+json.dashLength);
     this.remove(...this.pointArray);
     this.pointArray = json.pointArray.map(
       (v: number[]) =>
         new flowLinePoint(this, new THREE.Vector3(v[0], v[1], v[2]))
     );
-    this.drawLine();
-    this.dashManager.restore(this.curve);
+    this.dashManager.fromJSON(json.dashProperties);
+    this.drawLine(true);
   }
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);
@@ -456,100 +471,95 @@ export default class flowLine extends THREE.Mesh implements flowIF, dataSetIF {
 }
 
 function dashGenerator(
-  curve: THREE.CatmullRomCurve3,
   parent: THREE.Object3D,
   dashLength: number,
   dashSpace: number,
   speed: number,
-  color: number | string
+  color: number | string,
+  opacity: number = 1
 ) {
-  let length = curve.getLength();
-  let dashes: { node: THREE.Mesh; offset: number }[] = [];
-  let count = length / (dashLength + dashSpace);
-  for (let i = 0; i < count; i++) {
-    dashes.push(dashNode(dashLength, 4, color, i / count));
-  }
+  let length = 0;
+  let lineTube: THREE.Mesh<DashTube, THREE.ShaderMaterial>;
+  let LineMat: THREE.ShaderMaterial;
+  let property = {
+    dashLength,
+    dashSpace,
+    speed,
+    color,
+    opacity,
+  };
 
   return {
-    dashes,
     properties: () => {
-      return { dashLength, dashSpace };
+      return property;
     },
-    tick: (delta: number) => {
-      dashes.forEach((d) => {
-        d.offset += (delta * speed) / 1000 / length;
-        while (d.offset > 1) d.offset--;
-        try {
-          d.node.position.copy(curve.getPointAt(d.offset));
-          d.node.lookAt(curve.getTangentAt(d.offset).add(d.node.position));
-        } catch (e) {
-          console.log("E", d, e);
-        }
-        d.node.rotateX(-Math.PI / 2);
-        // d.node.rotateZ(-Math.PI / 2);
-      });
+    tick: (time: number) => {
+      if (LineMat) {
+        LineMat.uniforms["time"].value = time;
+      }
     },
     changeColor: (newColor: number | string) => {
-      color = newColor;
-      dashes.forEach((d) =>
-        (d.node.material as THREE.MeshBasicMaterial).color.set(color)
-      );
-    },
-    changeOpacity: (newOpacity: number) => {
-      dashes.forEach(
-        (d) => ((d.node.material as THREE.Material).opacity = newOpacity)
-      );
-    },
-    changeProperty: (newDashLength: number) => {
-      newDashLength && (dashLength = newDashLength);
-      dashes.forEach((d) => (d.node.scale.y = dashLength));
-    },
-    restore: (newCurve: THREE.CatmullRomCurve3) => {
-      parent.remove(...dashes.map((d) => d.node));
-      curve = newCurve;
-      length = curve.getLength();
-      dashes = [];
-      count = length / (dashLength + dashSpace);
-      for (let i = 0; i < count; i++) {
-        dashes.push(dashNode(dashLength, 4, color, i / count));
+      property.color = newColor;
+      if (LineMat) {
+        LineMat.uniforms["color"].value = new THREE.Color(property.color);
       }
-      parent.add(...dashes.map((d) => d.node));
     },
-    dispose: () => {
-      dashes.forEach((d) => {
-        parent.remove(d.node);
-        d.node.geometry.dispose();
-        (d.node.material as THREE.Material).dispose();
+    changeProperty: (key: keyof typeof property, value: number) => {
+      property[key] = value;
+      if (LineMat) {
+        LineMat.uniforms[key].value = value;
+      }
+    },
+    genrate: (curve: THREE.CatmullRomCurve3) => {
+      parent.remove(lineTube);
+      length = curve.getLength();
+      LineMat = new THREE.ShaderMaterial({
+        uniforms: {
+          length: { value: length },
+          time: { value: 0 },
+          speed: { value: property.speed },
+          opacity: { value: property.opacity },
+          dashLength: { value: property.dashLength },
+          dashSpace: { value: property.dashSpace },
+          color: { value: new THREE.Color(property.color) },
+        },
+        vertexShader: LineShader.vert,
+        fragmentShader: LineShader.frag,
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthTest: false,
+      });
+      lineTube = new THREE.Mesh(
+        new DashTube(curve, Math.floor(length / 5), 3, 6),
+        LineMat
+      );
+      lineTube.renderOrder = parent.renderOrder;
+      parent.add(lineTube);
+    },
+    toJSON: () => {
+      return property;
+    },
+    fromJSON: (json: typeof property) => {
+      Object.keys(json).forEach((key) => {
+        let pkey = key as keyof typeof property;
+        if (pkey === "color") {
+          if (json.color) {
+            color = json.color;
+            LineMat.uniforms["color"].value = new THREE.Color(color);
+          }
+        } else {
+          if (json[pkey]) {
+            property[pkey] = json[pkey];
+            LineMat.uniforms[key].value = json[pkey];
+          }
+        }
       });
     },
+    dispose: () => {
+      parent.remove(lineTube);
+
+      lineTube.material.dispose();
+      lineTube.geometry.dispose();
+    },
   };
-}
-type dashManagerType = {
-  dashes: {
-    node: THREE.Mesh;
-    offset: number;
-  }[];
-  tick: (delta: number) => void;
-  properties: () => { dashLength: number; dashSpace: number };
-  changeColor: (color: string) => void;
-  changeOpacity: (opacity: number) => void;
-  changeProperty: (newDashLength: number) => void;
-  restore: (newCurve: THREE.CatmullRomCurve3) => void;
-  dispose: () => void;
-};
-function dashNode(
-  length: number,
-  width: number,
-  color: number | string,
-  offset: number
-) {
-  const geometry = new THREE.PlaneGeometry(1, 1);
-  const material = new THREE.MeshBasicMaterial({
-    transparent: true,
-    color: color,
-  });
-  const node = new THREE.Mesh(geometry, material);
-  node.scale.set(width, length, 1);
-  node.rotateX(-Math.PI / 2);
-  return { node, offset };
 }

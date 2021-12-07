@@ -20,7 +20,7 @@ export default class TextFrag extends THREE.Sprite {
         map: factory.tex,
         transparent: true,
         side: THREE.DoubleSide,
-         depthWrite:false,
+        depthTest: false,
       })
     );
     factory.regist(text + Math.random(), this);

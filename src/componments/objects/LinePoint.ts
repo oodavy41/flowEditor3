@@ -24,7 +24,7 @@ export default class linePoint extends THREE.Mesh implements flowIF {
       new THREE.MeshBasicMaterial({
         color: "red",
         transparent: true,
-         depthWrite:false,
+        depthTest: false,
         opacity: 0.7,
       })
     );
@@ -53,7 +53,7 @@ export default class linePoint extends THREE.Mesh implements flowIF {
     };
   }
 
-  onDispose(parent: THREE.Scene|THREE.Object3D) {
+  onDispose(parent: THREE.Scene | THREE.Object3D) {
     parent.remove(this);
     this.geometry.dispose();
     (this.material as THREE.Material).dispose();

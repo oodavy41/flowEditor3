@@ -1,6 +1,7 @@
 import React from "react";
 import * as THREE from "three";
 import { Object3D } from "three";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import dagre from "dagre";
 import Events from "events";
 
@@ -42,6 +43,7 @@ interface MainIf {
     gridColor: string;
     import: string;
     cameraHeight: number;
+    modelGroup: File;
     sceneLight: number;
   };
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
@@ -191,6 +193,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     };
 
     let gridHelper = new THREE.GridHelper(2000, 50);
+    gridHelper.renderOrder = -9999;
     gridHelper.position.y = -1;
     (gridHelper.material as THREE.LineBasicMaterial).color.set(GRID_COLOR);
     scene.add(gridHelper);
@@ -199,7 +202,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       new THREE.MeshBasicMaterial({
         color: "black",
         transparent: true,
-        depthWrite: false,
+        depthTest: false,
         opacity: 0.01,
       })
     );
@@ -239,11 +242,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     finalComposer.addPass(fxaaPass);
     this.objArray = [];
     let lastTime = 0;
-    let animate = (t: number) => {
+    let animate = (time: number) => {
       requestAnimationFrame(animate);
       try {
-        let delta = t - lastTime;
-        lastTime = t;
+        let delta = time - lastTime;
+        lastTime = time;
 
         // onResize
         let newSize = [container.clientWidth, container.clientHeight];
@@ -288,7 +291,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         // object update
         this.objArray.forEach(
           (obj: (flowIF | (flowIF & dataSetIF)) & THREE.Object3D) =>
-            obj.tick && obj.tick(delta)
+            obj.tick && obj.tick(delta, time)
         );
       } catch (e) {
         console.error("RENDER ERROR:", e);
@@ -311,6 +314,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       },
       gridColor: (value: any) => {
         (gridHelper.material as THREE.LineBasicMaterial).color.set(value);
+      },
+      modelGroup: (value: File) => {
+        this.modelGroupImport(value);
       },
     };
     this.updateCanvas = (key: keyof typeof canvasUpdatefunMap, value: any) => {
@@ -397,7 +403,6 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       }
       var intersects = raycaster.intersectObjects(this.objArray);
       if (intersects.length > 0) {
-        console.log(intersects);
         let result = intersects[0].object as flowIF & THREE.Object3D;
         result.switchLayer(POINT_BLOOM_LAYER, true);
         if (pointing !== result) {
@@ -417,7 +422,55 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       }
     };
 
+    let notdone = true;
     let onMouseDown = (event: MouseEvent) => {
+      if (notdone) {
+        // let nodes = [];
+        // for (let i = 0; i < 25; i++) {
+        //   let node = new flowNode(
+        //     scene,
+        //     textFactory,
+        //     `NODE${nodes.length}`,
+        //     NODE_COLOR,
+        //     BORDER_COLOR
+        //   );
+        //   node.editorID = selfNodeAdd("flow3DNode", node.text);
+        //   node.onUpdateData(
+        //     "position",
+        //     1,
+        //     `${(Math.random() - 0.5) * 820},${(Math.random() - 0.5) * 580}`,
+        //     true
+        //   );
+        //   this.objArray.push(node);
+        //   if (nodes.length > 0) {
+        //     for (let i = 0; i < nodes.length; i++) {
+        //       console.log(i, nodes[i]);
+        //       let n = nodes[i];
+        //       let line = new flowLine(
+        //         scene,
+        //         n,
+        //         node,
+        //         `#${Math.floor(Math.random() * 0xfff).toString(16)}`
+        //       );
+        //       line.editorID = selfNodeAdd(
+        //         "flow3DLine",
+        //         `${n.text}->${node.text}`
+        //       );
+        //       line.onUpdateData(
+        //         "number_dashLength",
+        //         1,
+        //         Math.random() * 15 + 5,
+        //         true
+        //       );
+        //       this.objArray.push(line);
+        //     }
+        //   }
+        //   nodes.push(node);
+        // }
+        // this.manualSave();
+        // notdone = false;
+      }
+
       mouse.x = ((event.clientX - canvasSize[2]) / canvasSize[0]) * 2 - 1;
       mouse.y = -((event.clientY - canvasSize[3]) / canvasSize[1]) * 2 + 1;
       console.log(event.clientX, event.clientY, canvasSize);
@@ -464,6 +517,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
             this.setState({ pickedNode: result });
             result.editorID &&
               !this.displayInView &&
+              !this.props.develop &&
               this.props.selfNodeSelect(result.editorID);
             (result as flowIF).onClick(raycaster);
           }
@@ -509,10 +563,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.onDispose && this.onDispose();
   }
 
-  NodeImport(value: string) {
-    let json = JSON.parse(value);
-    new THREE.ObjectLoader().parse(json, (obj) => {
-      console.log(obj);
+  modelGroupImport(value: File) {
+    new OBJLoader().load(URL.createObjectURL(value), (obj) => {
       obj.children.forEach((child) => {
         let newNode = new flowNode(
           this.scene,
@@ -521,11 +573,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           NODE_COLOR,
           BORDER_COLOR
         );
-        newNode.editorID = this.props.selfNodeAdd("flow3DNode", child.name);
+        if (this.props.selfNodeAdd)
+          newNode.editorID = this.props.selfNodeAdd("flow3DNode", child.name);
         newNode.text = child.name;
         this.objArray.push(newNode);
         newNode.mainMesh.geometry.copy((child as THREE.Mesh).geometry);
-        newNode.mainMesh.material = (child as THREE.Mesh).material;
         newNode.position.copy(child.position);
         newNode.transToGeo();
         newNode.groupID = obj.name || obj.uuid.slice(0, 5);
@@ -567,6 +619,10 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
           this.objArray.push(land);
           break;
         case "Node":
+          let geos = obj.mainMeshJson.geometries;
+          obj.mainMeshJson.geometries = geos.filter(
+            (geo: any) => geo.type !== "EdgesGeometry"
+          );
           let node = new flowNode(
             this.scene,
             textFactory,
@@ -609,6 +665,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       config.cameraHeight &&
         this.updateCanvas("cameraHeight", config.cameraHeight);
       config.sceneLight && this.updateCanvas("sceneLight", config.sceneLight);
+      config.modelGroup && this.updateCanvas("modelGroup", config.modelGroup);
       config.import && this.sceneImport(config.import);
     }
     if (!dataOfSet) return;
@@ -705,7 +762,10 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               key,
               1,
               data.config[key],
-              key === "model" || key === "image" || key === "image_icon"
+              key === "model" ||
+                key === "image" ||
+                key === "image_icon" ||
+                key === "list_mat"
             );
           }
           if (stepSteps.length > 0) {
@@ -883,9 +943,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               </div>
               <div style={{ fontSize: 8 }}>
                 <p>按住SHIFT点击两个节点制作连线</p>
+                <p>按住SHIFT使用滚轮缩放画面</p>
                 <p>按住ctrl拖动一个平面调整其尺寸</p>
-                <p>选中连线后会显示标识ID，点击自动复制</p>
-                <p>下方同ID的连线样式节点绑定</p>
               </div>
             </>
           )}
@@ -952,12 +1011,15 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               </div>
               <div>
                 <button
-                  onClick={() => this.NodeImport(this.nodeImportArea.value)}
+                  onClick={() =>
+                    this.modelGroupImport(this.nodeImportArea.files[0])
+                  }
                 >
                   节点群导入
                 </button>
                 <input
-                  type="textarea"
+                  type="file"
+                  accept="*/obj"
                   ref={(m) => (this.nodeImportArea = m)}
                 ></input>
               </div>
