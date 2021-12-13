@@ -217,6 +217,45 @@ export default function MetaPanel(props: metaPanelIF) {
               }
             />
           </div>
+          <div>
+            对比度滤镜
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.01"
+              defaultValue={1}
+              onChange={(event) =>
+                canvasUpdater("setContrast", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            亮度滤镜
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.01"
+              defaultValue={1}
+              onChange={(event) =>
+                canvasUpdater("setBrightness", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            饱和度滤镜
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.01"
+              defaultValue={1}
+              onChange={(event) =>
+                canvasUpdater("setSaturate", event.target.value)
+              }
+            />
+          </div>
           {pickedDom.length > 0 && <hr></hr>}
           {pickedDom}
         </>

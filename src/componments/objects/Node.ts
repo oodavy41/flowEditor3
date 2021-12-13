@@ -176,7 +176,7 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       scene,
       name,
       (SIZE * 2) / 4,
-      "#4286c4",
+      "#fff",
       textFactory
     );
     this.nameText.rotation.z = -Math.PI / 2;
@@ -347,7 +347,12 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     selfUpdate = true
   ) {
     let funMap: {
-      [key: string]: [string, (value: any) => void, () => any, any[]?];
+      [key: string]: [
+        string,
+        (value: any, selfUpdate?: boolean) => void,
+        () => any,
+        any[]?
+      ];
     } = {
       label_uuid: ["标识ID", (value) => {}, () => this.flowUUID],
       list_type: [
@@ -506,17 +511,39 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       ],
       list_mat: [
         "材质类型",
-        (pickingMat) => {
+        (pickingMat, selfUpdate) => {
           if (pickingMat !== (typeof this.mainMesh.material).toString()) {
             let { creator } = shaderList.find((mat) => mat.name === pickingMat);
             let oldOpacity = (this.mainMesh.material as THREE.Material).opacity;
+            let oldColor = (
+              this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+            ).color;
+            let oldUniforms = undefined;
+            if (this.mainMesh.material instanceof THREE.ShaderMaterial) {
+              oldUniforms = this.mainMesh.material.uniforms;
+            }
             this.mainMesh.material = new creator({
               transparent: true,
               texture: undefined,
             });
+            if (
+              oldUniforms &&
+              this.mainMesh.material instanceof THREE.ShaderMaterial
+            ) {
+              for (let key in oldUniforms) {
+                if (this.mainMesh.material.uniforms[key])
+                  this.mainMesh.material.uniforms[key] = oldUniforms[key];
+              }
+            }
             this.mainMesh.material.opacity = oldOpacity;
+            (
+              this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+            ).color.set(oldColor);
             this.mainMesh.material.needsUpdate = true;
-            this.configToPush["attrSet"] = this.getMatAttributes();
+            if (selfUpdate) {
+              let attrs = this.getMatAttributes();
+              this.configToPush["attrSet"] = attrs;
+            }
           }
         },
         () =>
@@ -540,39 +567,43 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
             value: string;
           }[]
         ) => {
-          data.forEach((_: { type: string; key: string; value: any }) => {
-            if (_.type === "color") {
-              (
-                this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
-              ).color = new THREE.Color(_.value + "");
-            } else if (this.mainMesh.material instanceof ShaderIF) {
-              if (_.type === "image") {
-                if (_.value && _.value instanceof File) {
-                  let texLoader = new THREE.TextureLoader().load(
-                    URL.createObjectURL(_.value),
-                    (texture) => {
-                      let oldUniforms = this.getMatAttributes();
-                      this.mainMesh.material = new StarryMaskMat({ texture });
-                      oldUniforms.forEach(
-                        ({ key, value }) =>
-                          typeof value === "number" &&
-                          (this.mainMesh.material as StarryMaskMat).setUniform(
-                            key,
-                            value
-                          )
-                      );
-                    }
+          data.forEach(
+            ((_: { type: string; key: string; value: any }) => {
+              if (_.type === "color") {
+                (
+                  this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+                ).color = new THREE.Color(_.value + "");
+              } else if (this.mainMesh.material instanceof ShaderIF) {
+                if (_.type === "image") {
+                  if (_.value && _.value instanceof File) {
+                    let texLoader = new THREE.TextureLoader().load(
+                      URL.createObjectURL(_.value),
+                      (texture) => {
+                        let oldUniforms = this.getMatAttributes();
+                        this.mainMesh.material = new StarryMaskMat({ texture });
+                        oldUniforms.forEach(
+                          ({ key, value }) =>
+                            typeof value === "number" &&
+                            (
+                              this.mainMesh.material as StarryMaskMat
+                            ).setUniform(key, value)
+                        );
+                      }
+                    );
+                    texLoader.wrapS = THREE.RepeatWrapping;
+                    texLoader.wrapT = THREE.RepeatWrapping;
+                  }
+                } else {
+                  (this.mainMesh.material as ShaderIF).setUniform(
+                    _.key,
+                    _.value
                   );
-                  texLoader.wrapS = THREE.RepeatWrapping;
-                  texLoader.wrapT = THREE.RepeatWrapping;
                 }
               } else {
-                (this.mainMesh.material as ShaderIF).setUniform(_.key, _.value);
+                console.error("ShaderSet Invailed", _.type, _.key, _.value);
               }
-            } else {
-              console.error("ShaderSet Invailed", _.type, _.key, _.value);
-            }
-          });
+            }).bind(this)
+          );
         },
         () => {
           return this.getMatAttributes();
@@ -586,16 +617,18 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       else if (action === OBJ_PROP_ACT.SET) {
         if (
           propName.indexOf("position") !== -1 ||
-          funMap[propName][OBJ_PROP_ACT.GET]() !== value
+          funMap[propName][OBJ_PROP_ACT.GET].bind(this)() !== value
         ) {
-          funMap[propName][action](value);
+          funMap[propName][action].bind(this)(value, selfUpdate);
           if (selfUpdate) {
             this.configToPush[propName] = value;
             this.selfConfigUpdateDeb();
           }
         }
       } else {
-        return funMap[propName][action] ? funMap[propName][action]() : null;
+        return funMap[propName][action]
+          ? funMap[propName][action].bind(this)()
+          : null;
       }
     }
   }

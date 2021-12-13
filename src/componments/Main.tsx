@@ -61,18 +61,21 @@ interface MainState {
     number[]
   ];
   pickedNode: flowIF & THREE.Object3D;
+  contrast: number;
+  brightness: number;
+  saturate: number;
 }
 const MIN_CAM_SCALE = 0.2;
 const MAX_CAM_SCALE = 1;
 const POINT_OUTLINE_COLOR = "#214362";
-const CLEAR_COLOR = "#fff";
+const CLEAR_COLOR = "rgba(12, 25, 50, 1)";
 const GRID_COLOR = "#999";
 const LINE_COLOR = "#444";
 const TEXT_COLOR = "#fff";
 const TEXT_BACKGROUND = "#4286c4";
 const LAND_COLOR = "#888";
 const NODE_COLOR = "#f6f6ef";
-const BORDER_COLOR = "#888";
+const BORDER_COLOR = "rgba(110, 210, 225, 1)";
 const POINT_BLOOM_LAYER = 1;
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(POINT_BLOOM_LAYER);
@@ -115,6 +118,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       focusMode: false,
       pickedNode: null,
       poping: [undefined, []],
+      contrast: 1,
+      brightness: 1,
+      saturate: 1,
     };
   }
   componentDidMount() {
@@ -317,6 +323,15 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       },
       modelGroup: (value: File) => {
         this.modelGroupImport(value);
+      },
+      setContrast: (value: any) => {
+        this.setState({ contrast: value });
+      },
+      setBrightness: (value: any) => {
+        this.setState({ brightness: value });
+      },
+      setSaturate: (value: any) => {
+        this.setState({ saturate: value });
       },
     };
     this.updateCanvas = (key: keyof typeof canvasUpdatefunMap, value: any) => {
@@ -549,7 +564,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     this.saveInterval = window.setInterval(() => {
       this.manualSave();
     }, 60000);
-    this.dataUpdate();
+    this.dataUpdate(true);
   }
 
   componentDidUpdate() {
@@ -656,7 +671,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       }
     });
   }
-  dataUpdate() {
+  dataUpdate(mounting = false) {
     let { dataOfSet, config, selfConfigUpdate, selfNodeDelete, selfNodeEdit } =
       this.props;
     if (config) {
@@ -765,7 +780,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               key === "model" ||
                 key === "image" ||
                 key === "image_icon" ||
-                key === "list_mat"
+                (!mounting && key === "list_mat")
             );
           }
           if (stepSteps.length > 0) {
@@ -884,7 +899,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
 
   render() {
     const { dataImport } = this.props;
-    const { displayMode, focusMode } = this.state;
+    const { displayMode, focusMode, contrast, brightness, saturate } =
+      this.state;
     const { poping } = this.state;
     return (
       <div className={styles.main} ref={(m) => (this.bodyDom = m)}>
@@ -953,6 +969,9 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         <div style={{ position: "relative" }}>
           <canvas
             className={styles.mainCanvas}
+            style={{
+              filter: `contrast(${contrast}) brightness(${brightness}) saturate(${saturate})`,
+            }}
             ref={(m) => (this.canvas = m)}
           ></canvas>
           <Popup

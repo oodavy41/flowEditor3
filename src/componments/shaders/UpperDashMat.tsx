@@ -33,7 +33,7 @@ const frag = `
     if(1.0-(mod(max((time * speed - voffset * offsetScale) , 0.0) , cycle) / cycle)>0.5){
       opacity=1.0;
     }else{
-      opacity=0.0;
+      opacity=opacityBase;
     }
     gl_FragColor =vec4(color , opacity);
 

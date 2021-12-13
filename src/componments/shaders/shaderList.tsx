@@ -6,9 +6,9 @@ import StarryMaskMat from "./StarryMaskMat";
 
 const shaderList = [
   { name: "MeshLambertMaterial", creator: THREE.MeshLambertMaterial },
-  { name: UpperDashMat.name, creator: UpperDashMat },
-  { name: UpperWaveMat.name, creator: UpperWaveMat },
-  { name: ShieldMat.name, creator: ShieldMat },
-  { name: StarryMaskMat.name, creator: StarryMaskMat },
+  { name: "UpperDashMat", creator: UpperDashMat },
+  { name: "UpperWaveMat", creator: UpperWaveMat },
+  { name: "ShieldMat", creator: ShieldMat },
+  { name: "StarryMaskMat", creator: StarryMaskMat },
 ];
 export default shaderList;

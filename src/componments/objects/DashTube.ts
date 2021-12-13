@@ -120,7 +120,7 @@ export default class DashTube extends THREE.TubeGeometry {
         vertex.z = P.z + radius * normal.z;
 
         vertices.push(vertex.x, vertex.y, vertex.z);
-        percent.push(i / tubularSegments);
+        percent.push(1 - i / tubularSegments);
       }
     }
 

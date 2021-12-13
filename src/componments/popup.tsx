@@ -68,7 +68,7 @@ export default class popup extends React.Component<popupIF, popupState> {
           >
             x
           </button>
-          标题:{title}
+          {title}
           <hr></hr>
           <p>{content}</p>
           {url && (

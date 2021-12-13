@@ -10,10 +10,12 @@ export default class shaderBase extends ShaderIF {
   }[] = [];
 
   setUniform(key: string, value: number | string): void {
-    if (typeof value === "number") {
-      this.uniforms[key].value = value;
-    } else if (typeof value === "string") {
-      this.uniforms[key].value = new THREE.Color(value);
+    if (this.uniforms[key]) {
+      if (typeof value === "number") {
+        this.uniforms[key].value = value;
+      } else if (typeof value === "string") {
+        this.uniforms[key].value = new THREE.Color(value);
+      }
     }
   }
 
