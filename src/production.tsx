@@ -20,6 +20,9 @@ interface MainIf {
       cameraHeight: number;
       modelGroup: File;
       sceneLight: number;
+      setContrast: number;
+      setBrightness: number;
+      setSaturate: number;
     };
   };
   develop: boolean;

@@ -6,8 +6,8 @@ const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const appDirectory = fs.realpathSync(process.cwd());
 const resolveApp = (relativePath) => path.resolve(appDirectory, relativePath);
 
-const publicPathName = "static";
-const outPutPathName = "js";
+const publicPathName = "develop";
+const assetPath = "assets";
 const outResoucePathName = "js";
 
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 9011;
@@ -18,7 +18,7 @@ module.exports = {
   mode: "development",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: `${publicPathName}/${outPutPathName}/[name].js`,
+    filename: `${publicPathName}/[name].js`,
     // chunkFilename: "[name].min.js"
   },
   resolve: {
@@ -92,7 +92,7 @@ module.exports = {
           {
             loader: "file-loader",
             options: {
-              name: `${publicPathName}/${outResoucePathName}/[name].[hash:8].[ext]`,
+              name: `${publicPathName}/${assetPath}/[name].[ext]`,
             },
           },
         ],

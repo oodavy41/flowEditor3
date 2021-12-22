@@ -41,6 +41,7 @@ const frag = `
 `;
 
 export default class UpperDashMat extends shaderBase {
+  type = "UpperDashMat";
   UniformList: {
     label: string;
     key: "speed" | "cycle" | "opacityBase" | "offsetScale" | "color";

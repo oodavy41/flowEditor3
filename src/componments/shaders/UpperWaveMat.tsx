@@ -37,6 +37,7 @@ const frag = `
 `;
 
 export default class UpperWaveMat extends shaderBase {
+  type = "UpperWaveMat";
   UniformList: {
     label: string;
     key: "speed" | "cycle" | "opacityBase" | "offsetScale" | "color";

@@ -39,6 +39,7 @@ const frag = `
 `;
 
 export default class ShieldMat extends shaderBase {
+  type: string = "ShieldMat";
   UniformList: {
     label: string;
     key: "opacityBase" | "color";

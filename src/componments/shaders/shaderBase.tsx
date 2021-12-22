@@ -3,6 +3,7 @@ import * as THREE from "three";
 import ShaderIF from "./shadeIF";
 
 export default class shaderBase extends ShaderIF {
+  type: string = "shaderBase";
   UniformList: {
     label: string;
     key: string;
