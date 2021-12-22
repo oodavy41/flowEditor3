@@ -14,6 +14,7 @@ import { BufferGeometry } from "three";
 import ShaderIF from "../shaders/shadeIF";
 import shaderList from "../shaders/shaderList";
 import StarryMaskMat from "../shaders/StarryMaskMat";
+import shaderBase from "../shaders/shaderBase";
 
 const SIZE = 40;
 const hideOpacity = 0.2;
@@ -473,23 +474,30 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
         },
         () => -this.nameText.position.x,
       ],
+      number_textHeight: [
+        "文字高度",
+        (value) => {
+          this.nameText.position.y = value;
+        },
+        () => -this.nameText.position.y,
+      ],
       number_scaleX: [
         "x缩放",
-        (value) => (this.scale.x = value),
-        () => this.scale.x,
+        (value) => (this.mainMesh.scale.x = value),
+        () => this.mainMesh.scale.x,
       ],
       number_scaleY: [
         "y缩放",
         (value) => {
-          this.scale.y = value;
+          this.mainMesh.scale.y = value;
           // this.position.y = (this.scale.y * SIZE) / 2;
         },
-        () => this.scale.y,
+        () => this.mainMesh.scale.y,
       ],
       number_scaleZ: [
         "z缩放",
-        (value) => (this.scale.z = value),
-        () => this.scale.z,
+        (value) => (this.mainMesh.scale.z = value),
+        () => this.mainMesh.scale.z,
       ],
       position: [
         "位置",
@@ -512,34 +520,12 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
       list_mat: [
         "材质类型",
         (pickingMat, selfUpdate) => {
-          if (pickingMat !== (typeof this.mainMesh.material).toString()) {
-            let { creator } = shaderList.find((mat) => mat.name === pickingMat);
-            let oldOpacity = (this.mainMesh.material as THREE.Material).opacity;
-            let oldColor = (
-              this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
-            ).color;
-            let oldUniforms = undefined;
-            if (this.mainMesh.material instanceof THREE.ShaderMaterial) {
-              oldUniforms = this.mainMesh.material.uniforms;
-            }
-            this.mainMesh.material = new creator({
-              transparent: true,
-              texture: undefined,
-            });
-            if (
-              oldUniforms &&
-              this.mainMesh.material instanceof THREE.ShaderMaterial
-            ) {
-              for (let key in oldUniforms) {
-                if (this.mainMesh.material.uniforms[key])
-                  this.mainMesh.material.uniforms[key] = oldUniforms[key];
-              }
-            }
-            this.mainMesh.material.opacity = oldOpacity;
-            (
-              this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
-            ).color.set(oldColor);
-            this.mainMesh.material.needsUpdate = true;
+          if (
+            pickingMat !==
+            (this.mainMesh.material as THREE.MeshLambertMaterial | shaderBase)
+              .type
+          ) {
+            this.switchMat(pickingMat);
             if (selfUpdate) {
               let attrs = this.getMatAttributes();
               this.configToPush["attrSet"] = attrs;
@@ -547,11 +533,8 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
           }
         },
         () =>
-          shaderList.find((matNode) => {
-            if (this.mainMesh.material instanceof matNode.creator) {
-              return true;
-            }
-          }).name,
+          (this.mainMesh.material as THREE.MeshLambertMaterial | shaderBase)
+            .type,
         shaderList.map((matNode) => ({
           key: matNode.name,
           value: matNode.name,
@@ -640,6 +623,33 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     }
   }, 1000);
 
+  switchMat(pickingMat: string) {
+    let { creator } = shaderList.find((mat) => mat.name === pickingMat);
+    let oldOpacity = (this.mainMesh.material as THREE.Material).opacity;
+    let oldColor = (
+      this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF
+    ).color;
+    let oldUniforms = undefined;
+    if (this.mainMesh.material instanceof THREE.ShaderMaterial) {
+      oldUniforms = this.mainMesh.material.uniforms;
+    }
+    this.mainMesh.material = new creator({
+      transparent: true,
+      texture: undefined,
+    });
+    if (oldUniforms && this.mainMesh.material instanceof THREE.ShaderMaterial) {
+      for (let key in oldUniforms) {
+        if (this.mainMesh.material.uniforms[key])
+          this.mainMesh.material.uniforms[key] = oldUniforms[key];
+      }
+    }
+    this.mainMesh.material.opacity = oldOpacity;
+    (this.mainMesh.material as THREE.MeshLambertMaterial | ShaderIF).color.set(
+      oldColor
+    );
+    this.mainMesh.material.needsUpdate = true;
+  }
+
   updateData() {
     if (!(this.data && this.stateSteps && this.stateSteps.length > 0)) return;
     let steps = [...this.stateSteps];
@@ -721,23 +731,6 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   get stateSteps() {
     return this._stateSteps;
   }
-  // set datasetID(value) {
-  //   this._datasetID = value;
-  //   clearInterval(this._dataRequestInterval);
-  //   if (value) {
-  //     this._dataRequestInterval = window.setInterval(() => {
-  //       post(
-  //         `https://test.visdata.com.cn:8081/visdata/rest/dataquery/dataconvert/query?definedStr=${this.datasetID}`
-  //       ).then((result) => {
-  //         if (result.status === 200 && result.data.result !== this.datasetID) {
-  //           console.log("DATA UPDATE:", this.datasetID, result.data.result);
-  //         } else {
-  //           console.log("ERROR QUERYSTR:", this.datasetID);
-  //         }
-  //       });
-  //     }, 60000);
-  //   }
-  // }
 
   toADGEJSON(lineArray: any[]) {
     let ret: any = {};
@@ -760,6 +753,10 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     ret.mainMeshJson = this.mainMesh.toJSON();
     ret.iconMesh = this.iconPlane.toJSON();
     ret.halo = { visible: this.halo.visible, color: this.haloColor };
+    ret.matType = (
+      this.mainMesh.material as THREE.MeshLambertMaterial | shaderBase
+    ).type;
+
     // lineArray.push(...this.starts.map((s) => s.toADGEJSON()));
     return ret;
   }
@@ -771,12 +768,22 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
     this.nameText.position.z = json.nameOffset;
     this.color = json.color;
     this.lineColor = json.lineColor;
+    json.mainMeshJson.materials = json.mainMeshJson.materials.map((m: any) => {
+      if (m.type != "MeshLambertMaterial" && m.type != "ShaderMaterial") {
+        m.type = "ShaderMaterial";
+      }
+      return m;
+    });
     new THREE.ObjectLoader().parse(json.mainMeshJson, (obj) => {
       this.mainMesh.geometry = (obj as THREE.Mesh).geometry;
       this.mainMesh.scale.copy((obj as THREE.Mesh).scale);
       this.mainMesh.position.copy((obj as THREE.Mesh).position);
       this.line.geometry = new THREE.EdgesGeometry(this.mainMesh.geometry);
       this.mainMesh.geometry.computeVertexNormals();
+      this.mainMesh.material = (obj as THREE.Mesh).material;
+      if (json.matType !== "MeshLambertMaterial") {
+        this.switchMat(json.matType);
+      }
     });
     new THREE.ObjectLoader().parse(json.iconMesh, (obj) => {
       this.remove(this.iconPlane);
@@ -799,20 +806,16 @@ export default class flowNode extends THREE.Mesh implements flowIF, dataSetIF {
   }
   onDispose(scene: THREE.Scene, objArray: (flowIF & THREE.Object3D)[]) {
     scene.remove(this);
-    let index = objArray.indexOf(this);
-    if (index >= 0) {
-      objArray.splice(index, 1);
-      this.remove(this.mainMesh);
-      this.mainMesh.geometry.dispose();
-      (this.mainMesh.material as THREE.Material).dispose();
-      this.remove(this.iconPlane);
-      this.iconPlane.geometry.dispose();
-      (this.iconPlane.material as THREE.Material).dispose();
-      this.geometry.dispose();
-      (this.material as THREE.Material).dispose();
-      this.starts.forEach((line) => line.onDispose(scene, objArray));
-      this.ends.forEach((line) => line.onDispose(scene, objArray));
-    }
+    this.remove(this.mainMesh);
+    this.mainMesh.geometry.dispose();
+    (this.mainMesh.material as THREE.Material).dispose();
+    this.remove(this.iconPlane);
+    this.iconPlane.geometry.dispose();
+    (this.iconPlane.material as THREE.Material).dispose();
+    this.geometry.dispose();
+    (this.material as THREE.Material).dispose();
+    this.starts.forEach((line) => line.onDispose(scene, objArray));
+    this.ends.forEach((line) => line.onDispose(scene, objArray));
   }
 }
 

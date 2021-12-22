@@ -27,6 +27,7 @@ const frag = `
 `;
 
 export default class StarryMaskMat extends shaderBase {
+  type = "StarryMaskMat";
   UniformList: {
     label: string;
     key: "BackgroundImage" | "BGscale";

@@ -212,9 +212,7 @@ export default function MetaPanel(props: metaPanelIF) {
             <input
               type="color"
               defaultValue="#000"
-              onChange={(event) =>
-                canvasUpdater("backgroundColor", event.target.value)
-              }
+              onChange={(event) => canvasUpdater("BgColor", event.target.value)}
             />
           </div>
           <div>

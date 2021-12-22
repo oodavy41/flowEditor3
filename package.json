@@ -14,8 +14,8 @@
     "development": "cross-env NODE_ENV=development webpack serve --config webpack.config.dev.cjs",
     "production": "cross-env NODE_ENV=production webpack --config webpack.config.production.cjs",
     "module": "cross-env NODE_ENV=production webpack --config webpack.config.module.cjs",
-    "copyless": "copyfiles -u 1 src/**/*.less built/",
-    "compile": "tsc --sourceMap false"
+    "copyless": "copyfiles -u 1 src/**/*.less src/**/*.png built/",
+    "compile": "cross-env tsc --sourceMap false"
   },
   "dependencies": {
     "@babel/polyfill": "^7.11.5",
@@ -27,7 +27,6 @@
     "@types/three": "^0.127.0",
     "awesome-typescript-loader": "^5.2.1",
     "axios": "^0.21.1",
-    "copyfiles": "^2.4.1",
     "dagre": "^0.8.5",
     "events": "^3.3.0",
     "react": "^16.13.1",
@@ -56,6 +55,7 @@
     "clean-webpack-plugin": "^3.0.0",
     "cross-env": "^7.0.2",
     "css-loader": "^5.0.0",
+    "copyfiles": "^2.4.1",
     "eslint": "^7.11.0",
     "eslint-plugin-flowtype": "^5.2.0",
     "eslint-plugin-import": "^2.22.1",

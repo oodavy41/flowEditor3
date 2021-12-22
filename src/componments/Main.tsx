@@ -45,6 +45,9 @@ interface MainIf {
     cameraHeight: number;
     modelGroup: File;
     sceneLight: number;
+    setContrast: number;
+    setBrightness: number;
+    setSaturate: number;
   };
   selfConfigUpdate?: (config: any, id?: string, tileType?: string) => void;
   selfNodeSelect?: (id: string) => void;
@@ -159,11 +162,11 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
       50000
     );
     this.camera = camera;
-    camera.position.set(-1500, defaultCameraHeight, 1500);
+    camera.position.set(-1500, defaultCameraHeight, -1500);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
 
-    let cameraState: CAMERA_STATE = 1 as CAMERA_STATE;
+    let cameraState: CAMERA_STATE = 0 as CAMERA_STATE;
     let cameraScale = defaultScale;
     camera.scale.set(cameraScale, cameraScale, cameraScale);
     window.addEventListener("wheel", (event) => {
@@ -315,7 +318,7 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         light.intensity = value;
         ambientLight.intensity = 1 - value;
       },
-      backgroundColor: (value: any) => {
+      BgColor: (value: any) => {
         renderer.setClearColor(value, 1);
       },
       gridColor: (value: any) => {
@@ -325,17 +328,18 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
         this.modelGroupImport(value);
       },
       setContrast: (value: any) => {
-        this.setState({ contrast: value });
+        if (value !== this.state.contrast) this.setState({ contrast: value });
       },
       setBrightness: (value: any) => {
-        this.setState({ brightness: value });
+        if (value !== this.state.brightness)
+          this.setState({ brightness: value });
       },
       setSaturate: (value: any) => {
-        this.setState({ saturate: value });
+        if (value !== this.state.saturate) this.setState({ saturate: value });
       },
     };
     this.updateCanvas = (key: keyof typeof canvasUpdatefunMap, value: any) => {
-      canvasUpdatefunMap[key](value);
+      canvasUpdatefunMap[key] && canvasUpdatefunMap[key](value);
     };
 
     var raycaster = new THREE.Raycaster();
@@ -675,13 +679,18 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
     let { dataOfSet, config, selfConfigUpdate, selfNodeDelete, selfNodeEdit } =
       this.props;
     if (config) {
-      config.BgColor && this.updateCanvas("backgroundColor", config.BgColor);
-      config.gridColor && this.updateCanvas("gridColor", config.gridColor);
-      config.cameraHeight &&
-        this.updateCanvas("cameraHeight", config.cameraHeight);
-      config.sceneLight && this.updateCanvas("sceneLight", config.sceneLight);
-      config.modelGroup && this.updateCanvas("modelGroup", config.modelGroup);
-      config.import && this.sceneImport(config.import);
+      Object.keys(config).forEach((key: keyof typeof config) => {
+        if (key === "import") {
+          this.sceneImport(config.import);
+        } else config[key] && this.updateCanvas(key, config[key]);
+      });
+      // config.BgColor && this.updateCanvas("backgroundColor", config.BgColor);
+      // config.gridColor && this.updateCanvas("gridColor", config.gridColor);
+      // config.cameraHeight &&
+      //   this.updateCanvas("cameraHeight", config.cameraHeight);
+      // config.sceneLight && this.updateCanvas("sceneLight", config.sceneLight);
+      // config.modelGroup && this.updateCanvas("modelGroup", config.modelGroup);
+      // config.import && this.sceneImport(config.import);
     }
     if (!dataOfSet) return;
     let dataOfSet_E = dataOfSet.map((a) => {
@@ -777,9 +786,8 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
               key,
               1,
               data.config[key],
-              key === "model" ||
-                key === "image" ||
-                key === "image_icon" ||
+              (data.config[key] &&
+                (key === "model" || key === "image" || key === "image_icon")) ||
                 (!mounting && key === "list_mat")
             );
           }
@@ -890,10 +898,14 @@ export default class MainPlane extends React.Component<MainIf, MainState> {
 
   clearScene() {
     console.log("clearScene");
-    this.objArray.forEach((o) => {
-      if (o.onDispose) o.onDispose(this.scene, this.objArray);
-      else this.scene.remove(o);
-    });
+    for (let i = 0; i < this.objArray.length; i++) {
+      const o = this.objArray[i];
+      if (o.onDispose) {
+        o.onDispose(this.scene, this.objArray);
+      } else {
+        this.scene.remove(o);
+      }
+    }
     this.objArray = [];
   }
 
