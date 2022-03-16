@@ -29,6 +29,7 @@ export default class FragFactory {
 
     this.tex = new THREE.CanvasTexture(this.canvas);
     this.tex.minFilter = THREE.NearestFilter;
+    this.tex.premultiplyAlpha = true;
     this.frags = {};
     this.flush();
   }

@@ -11,6 +11,7 @@
     "dev": "npm run development",
     "pubVis": "npm run production",
     "pubMod": "npm run module",
+    "prodHtml": "cross-env NODE_ENV=development webpack --config webpack.config.html.cjs",
     "development": "cross-env NODE_ENV=development webpack serve --config webpack.config.dev.cjs",
     "production": "cross-env NODE_ENV=production webpack --config webpack.config.production.cjs",
     "module": "cross-env NODE_ENV=production webpack --config webpack.config.module.cjs",
